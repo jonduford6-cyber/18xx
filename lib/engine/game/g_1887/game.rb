@@ -93,6 +93,33 @@ module Engine
           { name: '6', distance: 6, price: 500, num: 2 },
           { name: 'D', distance: 999, price: 700, num: 'unlimited' },
         ].freeze
+
+        # Charter private => the Finance House it floats
+        CHARTERS = { 'BARC' => 'BB', 'HAMC' => 'HAM', 'MURC' => 'MUR' }.freeze
+
+        def after_buy_company(player, company, price)
+          return super unless (fh_id = CHARTERS[company.id])
+
+          float_finance_house(player, company, corporation_by_id(fh_id), price)
+        end
+
+        def float_finance_house(player, charter, fh, price)
+          stock_market.set_par(fh, finance_house_par(price))
+          share_pool.buy_shares(player, fh.presidents_share, exchange: :free)
+
+          @bank.spend(price, fh)
+          @log << "#{fh.name} receives #{format_currency(price)} " \
+                  "(the winning bid for #{charter.name})"
+
+          charter.close!
+          @log << "#{charter.name} closes"
+        end
+
+        # Highest par price not above half the winning bid
+        def finance_house_par(price)
+          pars = stock_market.par_prices.sort_by(&:price)
+          pars.reverse.find { |p| p.price * 2 <= price } || pars.first
+        end
       end
     end
   end

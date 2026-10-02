@@ -3,6 +3,7 @@
 require_relative 'entities'
 require_relative 'map'
 require_relative 'meta'
+require_relative 'share_pool'
 require_relative '../base'
 
 module Engine
@@ -201,6 +202,14 @@ module Engine
             .group_by { |e| acting_for_entity(e) }
         end
 
+        # Show quantities as percentages: a share unit is 20% for Finance
+        # Houses and Construction Companies but 10% for Railways
+        SHOW_SHARE_PERCENT_OWNERSHIP = true
+
+        def init_share_pool
+          G1887::SharePool.new(self, allow_president_sale: self.class::PRESIDENT_SALES_TO_MARKET)
+        end
+
         def stock_round
           Engine::Round::Stock.new(self, [
             Engine::Step::DiscardTrain,
@@ -224,7 +233,47 @@ module Engine
           (FINANCE_HOUSES + CONSTRUCTION_COS).include?(entity.id)
         end
 
+        def finance_house?(entity)
+          entity&.corporation? && FINANCE_HOUSES.include?(entity.id)
+        end
+
+        # Not yet started: the president's certificate is in its treasury
+        def startable_construction_companies
+          CONSTRUCTION_COS.map { |id| corporation_by_id(id) }
+            .select { |c| c.presidents_share.owner == c }
+        end
+
+        # 10.5 / 11.3.3: the whole amount goes into the new company, which
+        # gets the bank subsidy (par x 1); the starter takes the president's
+        # certificate. The price marker waits beside the market until the
+        # next Operating Round (11.1), so the new company cannot operate,
+        # or be traded, before then.
+        def start_company(starter, company, amount)
+          par = finance_house_par(amount)
+          @log << "#{starter.name} starts #{company.name} with " \
+                  "#{format_currency(amount)} (par #{format_currency(par.price)})"
+          share_pool.buy_shares(starter, company.presidents_share, exchange: :free)
+          starter.spend(amount, company)
+          @bank.spend(par.price, company)
+          @log << "bank pays #{company.name} subsidy #{format_currency(par.price)}"
+          company.par_price = par
+          (@pending_markers ||= []) << company
+          @log << "#{company.name}'s price marker waits beside the market " \
+                  'until the next Operating Round'
+        end
+
+        # Pending markers go on the market at par, on the bottom of the stack
+        def place_pending_markers
+          (@pending_markers || []).each do |company|
+            stock_market.set_par(company, company.par_price)
+            @log << "#{company.name}'s price marker is placed at " \
+                    "#{format_currency(company.par_price.price)}"
+          end
+          @pending_markers = []
+        end
+
         def operating_round(round_num)
+          place_pending_markers
           Engine::Round::Operating.new(self, [
             G1887::Step::FinancialTurn,
             G1887::Step::Bankrupt,

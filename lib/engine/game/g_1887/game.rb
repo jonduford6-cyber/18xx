@@ -172,6 +172,16 @@ module Engine
           @init_round ||= Engine::Round::Auction.new(self, [G1887::Step::Auction])
         end
 
+        # 1887 has no initial offering: unsold certificates sit in the
+        # corporation's own treasury (wording only, as 1817 and 1846 do)
+        def ipo_name(_entity = nil)
+          'Treasury'
+        end
+
+        def ipo_reserved_name(_entity = nil)
+          'Treasury Reserved'
+        end
+
         def stock_round
           Engine::Round::Stock.new(self, [
             Engine::Step::DiscardTrain,

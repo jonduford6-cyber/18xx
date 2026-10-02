@@ -7,13 +7,19 @@ module Engine
   module Game
     module G1887
       module Step
-        # The operating turn of a Finance House or Construction Company.
-        # A Finance House may start a Construction Company (11.3.3) or
-        # pass; the other financial actions are not built yet.
+        # The operating turn of a Finance House or Construction Company
+        # (11.3.3): Buy one certificate, Start a Construction Company (a
+        # Finance House only), or Pass. The other financial actions are not
+        # built yet.
         #
         # Start is offered as a 'bid' (the amount paid), which makes the
         # site show its auction screen: the startable companies as cards,
         # and an amount box for the selected one.
+        #
+        # Buy is offered as a 'choose': one button per legal, affordable
+        # purchase, with the targets' cards below. When Start is possible
+        # too, a 'Start a Construction Company' button opens the Start
+        # screen.
         class FinancialTurn < Engine::Step::Base
           include Engine::Step::Auctioner
 
@@ -21,6 +27,8 @@ module Engine
 
           def actions(entity)
             return [] unless entity == current_entity
+            return %w[bid pass] if @start_chosen
+            return %w[choose pass] unless buy_options(entity).empty?
 
             available.empty? ? %w[pass] : %w[bid pass]
           end
@@ -31,6 +39,7 @@ module Engine
 
           def setup
             setup_auction
+            @start_chosen = false
           end
 
           def description
@@ -94,6 +103,66 @@ module Engine
             end
 
             @game.start_company(entity, company, amount)
+            pass!
+          end
+
+          # Corporations below the buyer's tier with a market price; one
+          # ordinary certificate from the target's Treasury or the bank
+          # pool, at the target's market price, if the buyer can pay it.
+          def buy_options(entity)
+            return [] unless @game.financial?(entity)
+
+            targets = @game.corporations.select do |c|
+              c.share_price && @game.tier(c) > @game.tier(entity)
+            end
+            targets.sort_by { |c| [@game.tier(c), c.name] }.flat_map do |target|
+              price = target.share_price.price
+              next [] if entity.cash < price
+
+              { 'Treasury' => target, 'Market' => @game.share_pool }.filter_map do |source, holder|
+                share = holder.shares_of(target).find { |s| s.buyable && !s.president }
+                next unless share
+
+                {
+                  choice: "#{source}:#{target.id}",
+                  share: share,
+                  price: price,
+                  label: "Buy #{share.percent}% #{target.name} #{source} Share " \
+                         "(#{@game.format_currency(price)})",
+                }
+              end
+            end
+          end
+
+          def choices
+            entity = current_entity
+            list = buy_options(entity).to_h { |o| [o[:choice], o[:label]] }
+            list['start'] = 'Start a Construction Company' unless available.empty?
+            list
+          end
+
+          def choice_name
+            available.empty? ? 'Buy' : 'Buy or Start'
+          end
+
+          # Cards of the corporations offered, below the buyer's own card
+          def show_other
+            buy_options(current_entity).map { |o| o[:share].corporation }.uniq
+          end
+
+          def process_choose(action)
+            entity = action.entity
+            if action.choice == 'start'
+              raise GameError, "#{entity.name} cannot start a company" if available.empty?
+
+              @start_chosen = true
+              return
+            end
+
+            option = buy_options(entity).find { |o| o[:choice] == action.choice }
+            raise GameError, "#{entity.name} cannot buy #{action.choice}" unless option
+
+            @game.corporate_buy(entity, option[:share], option[:price])
             pass!
           end
 

@@ -4,6 +4,7 @@ require_relative 'entities'
 require_relative 'map'
 require_relative 'meta'
 require_relative 'share_pool'
+require_relative 'round/operating'
 require_relative '../base'
 
 module Engine
@@ -251,6 +252,30 @@ module Engine
           entity&.corporation? && FINANCE_HOUSES.include?(entity.id)
         end
 
+        # 0 Finance House, 1 Construction Company, 2 Railway: a corporation
+        # buys only from a higher tier number (11.3.3)
+        def tier(corporation)
+          return 0 if finance_house?(corporation)
+
+          financial?(corporation) ? 1 : 2
+        end
+
+        # 11.3.3 Buy: one certificate at the target's market price, paid
+        # from the buyer's treasury into the target's treasury (from its
+        # Treasury) or to the bank (from the market). The target's price
+        # does not move. Then the presidency check, swap included.
+        def corporate_buy(buyer, share, price)
+          target = share.corporation
+          treasury = share.owner == target
+          @log << "#{buyer.name} buys a #{share.percent}% share of #{target.name} " \
+                  "from #{treasury ? 'the Treasury' : 'the market'} for #{format_currency(price)}"
+          share_pool.transfer_shares(share.to_bundle, buyer, spender: buyer,
+                                                             receiver: treasury ? target : @bank,
+                                                             price: price,
+                                                             allow_president_change: false)
+          check_presidency(target)
+        end
+
         # Not yet started: the president's certificate is in its treasury
         def startable_construction_companies
           CONSTRUCTION_COS.map { |id| corporation_by_id(id) }
@@ -288,7 +313,7 @@ module Engine
 
         def operating_round(round_num)
           place_pending_markers
-          Engine::Round::Operating.new(self, [
+          G1887::Round::Operating.new(self, [
             G1887::Step::FinancialTurn,
             G1887::Step::Bankrupt,
             G1887::Step::Exchange,

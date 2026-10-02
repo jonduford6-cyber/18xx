@@ -182,6 +182,25 @@ module Engine
           'Treasury Reserved'
         end
 
+        # Corporate presidency (as 1841): the human at the top of a chain of
+        # corporate presidents acts for every corporation in it. Uses the
+        # engine's loop-safe Corporation#player; nil if nobody controls it.
+        def controller(entity)
+          entity&.corporation? ? entity.player : entity
+        end
+
+        def acting_for_entity(entity)
+          return controller(entity) if entity&.corporation? && controller(entity)
+
+          super
+        end
+
+        # Entities tab: group corporations under their controlling human
+        def player_sort(entities)
+          entities.sort_by { |e| [operating_order.index(e) || Float::INFINITY, e.name] }
+            .group_by { |e| acting_for_entity(e) }
+        end
+
         def stock_round
           Engine::Round::Stock.new(self, [
             Engine::Step::DiscardTrain,
@@ -239,17 +258,21 @@ module Engine
           check_presidency(railway)
         end
 
-        # Rulebook 10.3: a player holding strictly more than the president
-        # takes over, swapping ordinary certificates of equal value for the
-        # president's certificate. Does nothing until the president's
-        # certificate has been delivered. Ties keep the president; between
-        # tied challengers the nearest clockwise from the president wins.
+        # Rulebook 10.3: a holder (player or corporation) holding strictly
+        # more than the president takes over, swapping ordinary certificates
+        # of equal value for the president's certificate. Does nothing until
+        # the president's certificate has been delivered. Ties keep the
+        # president; between tied challengers players come before
+        # corporations (as 1841), players nearest clockwise from the
+        # president first.
         def check_presidency(railway)
           pres = railway.owner
-          return unless pres&.player?
+          return unless pres
 
-          held = ->(p) { p.percent_of(railway) }
-          top = @players.rotate(@players.index(pres)).max_by(&held)
+          held = ->(h) { h.percent_of(railway) }
+          players = pres.player? ? @players.rotate(@players.index(pres)) : @players
+          corps = @corporations.reject { |c| c.closed? || c == railway }
+          top = [pres, *players, *corps].max_by(&held)
           return unless held[top] > held[pres]
 
           share_pool.change_president(railway.presidents_share, pres, top)

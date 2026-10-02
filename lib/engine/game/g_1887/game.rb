@@ -94,6 +94,28 @@ module Engine
           { name: 'D', distance: 999, price: 700, num: 'unlimited' },
         ].freeze
 
+        FINANCE_HOUSES = %w[BB HAM MUR].freeze
+
+        def setup
+          super
+          deal_seed_certificates
+        end
+
+        # One 20% seed in each Finance House to a random player;
+        # with 4 players the one left over gets a 10% BAGS seed.
+        def deal_seed_certificates
+          players = @players.sort_by { rand }
+          FINANCE_HOUSES.zip(players) do |id, player|
+            give_seed(player, corporation_by_id(id))
+          end
+          give_seed(players[3], corporation_by_id('BAGS')) if players[3]
+        end
+
+        def give_seed(player, corporation)
+          share = corporation.ipo_shares.reject(&:president).first
+          share_pool.buy_shares(player, share, exchange: :free)
+        end
+
         # Charter private => the Finance House it floats
         CHARTERS = { 'BARC' => 'BB', 'HAMC' => 'HAM', 'MURC' => 'MUR' }.freeze
 

@@ -119,10 +119,10 @@ module Engine
         # Railways floated at Setup => their fixed starting price
         PREFLOATED = { 'BAGS' => 92, 'BAWR' => 76 }.freeze
 
-        # 10% certificates kept back in each Railway's IPO, unbuyable:
-        # BAWR's exchange certificates, and BAGS's three bundled with
-        # BAGS_PRIVATES.
-        HELD_OUT = 3
+        # 10% certificates kept back in a Railway's IPO, unbuyable: BAWR's
+        # exchange certificates. (BAGS's three that come with BAGS_PRIVATES
+        # wait in the bank pool, as 1871's do in its market.)
+        HELD_OUT = { 'BAWR' => 3 }.freeze
 
         # Fixed price, held-out certificates reserved, the other unowned
         # 10% certificates to the bank pool, and 10x par from the bank.
@@ -134,7 +134,7 @@ module Engine
           railway.ipoed = true
 
           shares = railway.ipo_shares.reject(&:president)
-          shares.pop(HELD_OUT).each { |s| s.buyable = false }
+          shares.pop(HELD_OUT.fetch(railway.id, 0)).each { |s| s.buyable = false }
           bundle = ShareBundle.new(shares)
           share_pool.transfer_shares(bundle, share_pool,
                                      allow_president_change: false)
@@ -188,8 +188,10 @@ module Engine
           'Treasury'
         end
 
+        # Only BAWR holds certificates back: its exchange shares (as 1871
+        # names its own)
         def ipo_reserved_name(_entity = nil)
-          'Treasury Reserved'
+          'Exchange'
         end
 
         # Corporate presidency (as 1841): the human at the top of a chain of
@@ -334,22 +336,22 @@ module Engine
           end
 
           bags = BAGS_PRIVATES.include?(company.id)
-          return give_held_share(player, corporation_by_id('BAGS')) if bags
+          return give_pool_share(player, corporation_by_id('BAGS')) if bags
 
           return super unless (fh_id = CHARTERS[company.id])
 
           float_finance_house(player, company, corporation_by_id(fh_id), price)
         end
 
-        # Privates that each come with one held-out 10% BAGS certificate
+        # Privates that each come with one 10% BAGS certificate from the
+        # bank pool (free; the price does not move)
         BAGS_PRIVATES = %w[BRC PLC RSL].freeze
 
         # Both hand-overs skip the engine's own president check, which
         # crashes while the president's certificate is unsold, and run
         # check_presidency instead.
-        def give_held_share(player, railway)
-          share = railway.reserved_shares.first
-          share.buyable = true
+        def give_pool_share(player, railway)
+          share = share_pool.shares_of(railway).first
           share_pool.buy_shares(player, share, exchange: :free,
                                                allow_president_change: false)
           check_presidency(railway)

@@ -145,6 +145,7 @@ module Engine
             sym: 'ELG',
             value: 45,
             revenue: 5,
+            min_players: 4,
             desc: '4-PLAYER ONLY. Corporate-purchasable by a Railway. A Railway cannot build track into hex J10 (a plain countryside hex just outside Tandil, in the historic ranching heartland of Buenos Aires province) until this private is either bought into a Railway\'s treasury or closes. Closes at the start of phase 5. Pays its owner a flat $50 bonus when it closes, instead of a special power.',
             abilities: [],
             color: nil,

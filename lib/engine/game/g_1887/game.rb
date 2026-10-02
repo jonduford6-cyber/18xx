@@ -164,6 +164,20 @@ module Engine
           share_pool.buy_shares(holder, share, exchange: :free)
         end
 
+        MUST_BID_INCREMENT_MULTIPLE = true
+
+        # Memoized like 1871: Base#next_round! calls init_round again, which
+        # must not deal the auction piles a second time.
+        def init_round
+          @init_round ||= Engine::Round::Auction.new(self, [G1887::Step::Auction])
+        end
+
+        # First Stock Round: least cash first, seating order breaks ties
+        def reorder_players(order = nil, **kwargs)
+          order ||= :least_cash if @round.is_a?(Engine::Round::Auction)
+          super(order, **kwargs)
+        end
+
         # Charter private => the Finance House it floats
         CHARTERS = { 'BARC' => 'BB', 'HAMC' => 'HAM', 'MURC' => 'MUR' }.freeze
 
@@ -186,14 +200,15 @@ module Engine
         # Privates that each come with one held-out 10% BAGS certificate
         BAGS_PRIVATES = %w[BRC PLC RSL].freeze
 
-        # Neither hand-over may change the president by share count:
-        # the Concession buyer is president even if another player
-        # already holds 20% or more from seeds and BAGS_PRIVATES.
+        # Both hand-overs skip the engine's own president check, which
+        # crashes while the president's certificate is unsold, and run
+        # check_presidency instead.
         def give_held_share(player, railway)
           share = railway.reserved_shares.first
           share.buyable = true
           share_pool.buy_shares(player, share, exchange: :free,
                                                allow_president_change: false)
+          check_presidency(railway)
         end
 
         def give_presidency(player, railway)
@@ -202,6 +217,25 @@ module Engine
                                 allow_president_change: false)
           railway.owner = player
           @log << "#{player.name} becomes the president of #{railway.name}"
+          check_presidency(railway)
+        end
+
+        # Rulebook 10.3: a player holding strictly more than the president
+        # takes over, swapping ordinary certificates of equal value for the
+        # president's certificate. Does nothing until the president's
+        # certificate has been delivered. Ties keep the president; between
+        # tied challengers the nearest clockwise from the president wins.
+        def check_presidency(railway)
+          pres = railway.owner
+          return unless pres&.player?
+
+          held = ->(p) { p.percent_of(railway) }
+          top = @players.rotate(@players.index(pres)).max_by(&held)
+          return unless held[top] > held[pres]
+
+          share_pool.change_president(railway.presidents_share, pres, top)
+          railway.owner = top
+          @log << "#{top.name} becomes the president of #{railway.name}"
         end
 
         def float_finance_house(player, charter, fh, price)

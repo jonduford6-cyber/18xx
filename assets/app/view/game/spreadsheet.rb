@@ -217,6 +217,7 @@ module View
           bank_width += 1
           reserved_header << h(:th, render_sort_link(@game.ipo_reserved_name, :reserved_shares))
         end
+        bank_width += 1 if shares_as_percent?
 
         corporation_props_size = 5 + extra.size + treasury.size
 
@@ -237,6 +238,7 @@ module View
           h(:th, render_sort_link(@game.ipo_name, :ipo_shares)),
           h(:th, render_sort_link('Market', :market_shares)),
         ]
+        bank_subtitles << h(:th, 'Corporations') if shares_as_percent?
         prices_subtitles = [
           h(:th, render_sort_link(@game.ipo_name, :par_price)),
           h(:th, render_sort_link('Market', :share_price)),
@@ -494,7 +496,7 @@ module View
                             color: num_reserved_shares(corporation).zero? ? 'transparent' : 'inherit',
                           },
                         },
-                        num_reserved_shares(corporation))
+                        share_cell(num_reserved_shares(corporation), corporation))
         end
 
         extra = []
@@ -532,7 +534,7 @@ module View
           n_shares = num_shares_of(p, corporation)
           props[:style][:color] = 'transparent' if n_shares.zero?
           share_holding = corporation.president?(p) ? '*' : ''
-          share_holding += n_shares.to_s unless corporation.minor?
+          share_holding += share_cell(n_shares, corporation).to_s unless corporation.minor?
           players_row_content << h('td.padded_number', props, share_holding)
         end
 
@@ -545,10 +547,11 @@ module View
                 color: n_ipo_shares.zero? ? 'transparent' : 'inherit',
               },
             },
-            n_ipo_shares),
+            share_cell(n_ipo_shares, corporation)),
           h('td.padded_number', bank_market_props,
-            "#{corporation.receivership? ? '*' : ''}#{n_market_shares}"),
+            "#{corporation.receivership? ? '*' : ''}#{share_cell(n_market_shares, corporation)}"),
         ]
+        bank_row_content << render_corporate_holders(corporation) if shares_as_percent?
 
         prices_row_content = [
           h('td.padded_number', corporation.par_price ? @game.format_currency(corporation.par_price.price) : ''),
@@ -628,6 +631,8 @@ module View
       end
 
       def render_player_shares
+        return '' if shares_as_percent?
+
         h(:tr, tr_default_props, [
           h('th.left', 'Shares'),
           *@game.players.map do |p|
@@ -688,6 +693,24 @@ module View
       end
 
       private
+
+      # Opt-in: games defining shares_as_percent? show percentages, not units
+      def shares_as_percent?
+        @game.respond_to?(:shares_as_percent?) && @game.shares_as_percent?
+      end
+
+      def share_cell(num, corporation)
+        shares_as_percent? && !num.zero? ? "#{(num * corporation.share_percent).round}%" : num
+      end
+
+      # Certificates of this corporation held by other corporations
+      def render_corporate_holders(corporation)
+        holders = @game.corporations.reject { |c| c == corporation || c.percent_of(corporation).zero? }
+        total = holders.sum { |c| c.percent_of(corporation) }
+        title = holders.map { |c| "#{c.name} #{c.percent_of(corporation)}%" }.join(', ')
+        h('td.padded_number', { attrs: { title: title }, style: { color: total.zero? ? 'transparent' : 'inherit' } },
+          "#{total}%")
+      end
 
       def num_ipo_shares(corporation)
         if @game.separate_treasury?

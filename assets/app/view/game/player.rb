@@ -173,10 +173,13 @@ module View
           h(:td, 'Certs'),
           h('td.right', td_cert_props, @game.show_game_cert_limit?(@player) ? "#{num_certs}/#{cert_limit}" : num_certs.to_s),
         ])
-        trs << h(:tr, [
-          h(:td, 'Shares'),
-          h('td.right', td_cert_props, (@game.all_corporations.sum { |c| c.minor? ? 0 : num_shares_of(@player, c) }).to_s),
-        ])
+        # Opt-in: games showing shares as percentages have no unit total
+        if !@game.respond_to?(:shares_as_percent?) || !@game.shares_as_percent?
+          trs << h(:tr, [
+            h(:td, 'Shares'),
+            h('td.right', td_cert_props, (@game.all_corporations.sum { |c| c.minor? ? 0 : num_shares_of(@player, c) }).to_s),
+          ])
+        end
         if @game.respond_to?(:player_card_rows)
           label, value = @game.player_card_rows(@player)
           trs << h(:tr, [h(:td, label), h('td.right', value)])

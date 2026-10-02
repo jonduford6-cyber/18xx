@@ -24,7 +24,8 @@ module View
           step = @game.round.active_step
           bundle = @share.to_bundle
           show_percentage = @percentages_available > 1 ||
-                            (bundle.percent != bundle.corporation.share_percent && !bundle.presidents_share)
+                            (bundle.percent != bundle.corporation.share_percent && !bundle.presidents_share) ||
+                            (@game.respond_to?(:shares_as_percent?) && @game.shares_as_percent?)
           reduced_price = @game.format_currency(bundle.price - @swap_share.price) if @swap_share
           if step.respond_to?(:modify_purchase_price)
             if (modified_bundle_price = step.modify_purchase_price(bundle)) == bundle.price

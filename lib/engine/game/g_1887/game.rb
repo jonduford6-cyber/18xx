@@ -211,9 +211,12 @@ module Engine
             .group_by { |e| acting_for_entity(e) }
         end
 
-        # Show quantities as percentages: a share unit is 20% for Finance
-        # Houses and Construction Companies but 10% for Railways
-        SHOW_SHARE_PERCENT_OWNERSHIP = true
+        # Show share quantities as percentages on cards, the spreadsheet and
+        # buy/sell buttons (opt-in read by the views): a share unit is 20%
+        # for Finance Houses and Construction Companies but 10% for Railways
+        def shares_as_percent?
+          true
+        end
 
         def init_share_pool
           G1887::SharePool.new(self, allow_president_sale: self.class::PRESIDENT_SALES_TO_MARKET)

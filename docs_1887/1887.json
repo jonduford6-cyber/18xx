@@ -1,0 +1,1822 @@
+{
+  "info": {
+    "title": "1887",
+    "designer": "Jon",
+    "background": "_coral",
+    "currency": "$#",
+    "titleX": -5000,
+    "titleY": -5000
+  },
+  "links": {
+    "rules": ""
+  },
+  "colors": {
+    "_coral": "#e8734a",
+    "_purple": "#7030a0",
+    "_blue": "#4472c4",
+    "_gray": "#8a8a8a",
+    "_bronze": "#8c6239",
+    "_teal": "#1f8a8a",
+    "_gold": "#c9a227",
+    "_magenta": "#c2358a",
+    "_charcoal": "#262626",
+    "_pink": "#f4a6b8",
+    "_lime": "#8bc34a",
+    "_wheat": "#f0b400",
+    "_stone": "#d6cba5",
+    "_forest": "#1b5e20"
+  },
+  "players": [
+    {
+      "number": 3,
+      "certLimit": 20,
+      "capital": 700
+    },
+    {
+      "number": 4,
+      "certLimit": 16,
+      "capital": 520
+    }
+  ],
+  "shareTypes": {
+    "default": [
+      {
+        "quantity": 1,
+        "label": "President's Certificate",
+        "percent": 20,
+        "shares": 2
+      },
+      {
+        "quantity": 8,
+        "percent": 10,
+        "shares": 1
+      }
+    ]
+  },
+  "floatPercent": 20,
+  "tokenTypes": {
+    "three": [
+      "Home",
+      40,
+      80
+    ],
+    "four": [
+      "Home",
+      40,
+      80,
+      80
+    ],
+    "one": [
+      "Market"
+    ]
+  },
+  "_note_companies": "NOTE: this section covers all thirteen corporations. The seven Railways have map tokens and colors (standard 18xx-maker company fields). BAGS/BAWR are the two pre-floated starting Railways. The three Finance Houses and any Construction Companies founded during play do NOT operate on the map — they have no tokens. 18xx-maker is a component/rules-text renderer, not a rules engine, so their special behavior (tier-locked Buy or Start, Redeem/Reissue/Merge, the capital-call cascade) is written into their description text below rather than enforced by the tool itself. Construction Companies have fixed real-history names now (Brassey Wythes & Wheelwright, John & Matthew Clark, John Meiggs & Co.) but still started dynamically during play by a Finance House, same as any other founding - print them as normal charters, not blank templates. SEQUENCE: Finance Houses (floated at setup via their Charter privates) start Construction Companies; Construction Companies start Railways. Only BAGS/BAWR are pre-floated exceptions — every other Railway requires an existing Construction Company to originate it. This is early-game, not mid-game: nothing stops a Construction Company acting in the first OR it's eligible.",
+  "companies": [
+    {
+      "name": "Buenos Aires Great Southern",
+      "abbrev": "BAGS",
+      "color": "_coral",
+      "tokens": "three",
+      "description": "Pre-floated at setup, reserved price 92. Treasury = 10x par on float. May not Redeem."
+    },
+    {
+      "name": "Buenos Aires Western",
+      "abbrev": "BAWR",
+      "color": "_purple",
+      "tokens": "three",
+      "description": "Pre-floated at setup, reserved price 76. Treasury = 10x par on float. May not Redeem."
+    },
+    {
+      "name": "Santa Fe Western",
+      "abbrev": "SFW",
+      "color": "_wheat",
+      "tokens": "four",
+      "description": "Home: Rosario. Started only by a Construction Company buying into or starting it — does not float independently. Floats when its president's certificate (20%) is bought from its own treasury, paying par x2 into that treasury, on the standard par column. It also receives a one-time subsidy of par x1 from the bank on founding. Contested port revenue - BA&P's westward line passes close by, so SFW competes for the same Rosario-area traffic rather than owning it outright. Four stations to hold its share of the port and reach north toward Santa Fe and Cordoba."
+    },
+    {
+      "name": "Bahia Blanca & North Western",
+      "abbrev": "BBNW",
+      "color": "_blue",
+      "tokens": "three",
+      "description": "Home: Bahia Blanca. Started only by a Construction Company buying into or starting it — does not float independently. Floats when its president's certificate (20%) is bought from its own treasury, paying par x2 into that treasury, on the standard par column. It also receives a one-time subsidy of par x1 from the bank on founding. The most isolated Railway on the map - far from every other home station, but only 3 hexes from the Atlantic Export off-board (worth 40/90). Low early revenue, strong late payoff once the frontier line is built out. Three stations, matching its Buenos Aires-based rivals."
+    },
+    {
+      "name": "Argentine North Western",
+      "abbrev": "ANW",
+      "color": "_gray",
+      "tokens": "four",
+      "description": "Home: Tucuman. Started only by a Construction Company buying into or starting it — does not float independently. Floats when its president's certificate (20%) is bought from its own treasury, paying par x2 into that treasury, on the standard par column. It also receives a one-time subsidy of par x1 from the bank on founding. Sits two hexes from the Bolivia/Paraguay off-board. Four stations."
+    },
+    {
+      "name": "Buenos Aires & Pacific",
+      "abbrev": "BAP",
+      "color": "_magenta",
+      "tokens": "three",
+      "description": "Home: San Luis, reaching toward Mendoza and the Andes. Started only by a Construction Company buying into or starting it — does not float independently. Floats when its president's certificate (20%) is bought from its own treasury, paying par x2 into that treasury, on the standard par column. It also receives a one-time subsidy of par x1 from the bank on founding. Real mountain terrain cost along its natural expansion route, and little competition once connected - nobody else has a reason to build that far west. Three stations."
+    },
+    {
+      "name": "Entre Rios Railway",
+      "abbrev": "ER",
+      "color": "_lime",
+      "tokens": "three",
+      "description": "No home at setup. Started mid-game only, by a Construction Company. The first time it is founded, its home station is placed at the Entre Rios hex. Floats when its president's certificate (20%) is bought from its own treasury, paying par x2 into that treasury, on the standard par column. Fail-safe: if it has not been started when the first 4-train is bought, any player may start it as their buy action. The player picks a par and pays par x2 to the bank for the president's certificate. Other certificates are bought at par, paid to the bank, until 60% are sold; then it floats and the bank pays 10x par into its treasury. Three stations, reflecting its later, leaner start."
+    },
+    {
+      "name": "Baring Brothers",
+      "abbrev": "BB",
+      "description": "Finance House. No map presence - no tokens, no trains, never runs a route. Floats when its Charter is bought in the Initial Auction: the winning bid is paid into its treasury and the buyer sets its par (the highest standard par not above half the bid). Its other certificates sell at market price. Its Operating Round turn is a single financial-operations action: Redeem, Reissue, Buy or Start (buy into or start a Construction Company), or Merge. See 11.3.",
+      "color": "_charcoal",
+      "tokens": "one",
+      "minor": true,
+      "shares": [
+        {
+          "quantity": 1,
+          "label": "President's Certificate",
+          "percent": 40,
+          "shares": 2
+        },
+        {
+          "quantity": 3,
+          "percent": 20,
+          "shares": 1
+        }
+      ]
+    },
+    {
+      "name": "C.J. Hambro & Co.",
+      "abbrev": "HAM",
+      "description": "Finance House. Identical structure to Baring Brothers: no map presence, one financial-operations action per OR. Floats when its Charter is bought in the Initial Auction: the winning bid is paid into its treasury and the buyer sets its par (the highest standard par not above half the bid). Its other certificates sell at market price.",
+      "color": "_pink",
+      "tokens": "one",
+      "minor": true,
+      "shares": [
+        {
+          "quantity": 1,
+          "label": "President's Certificate",
+          "percent": 40,
+          "shares": 2
+        },
+        {
+          "quantity": 3,
+          "percent": 20,
+          "shares": 1
+        }
+      ]
+    },
+    {
+      "name": "E. Murrieta & Co.",
+      "abbrev": "MUR",
+      "description": "Finance House. Identical structure to Baring Brothers: no map presence, one financial-operations action per OR. Floats when its Charter is bought in the Initial Auction: the winning bid is paid into its treasury and the buyer sets its par (the highest standard par not above half the bid). Its other certificates sell at market price.",
+      "color": "_forest",
+      "tokens": "one",
+      "minor": true,
+      "shares": [
+        {
+          "quantity": 1,
+          "label": "President's Certificate",
+          "percent": 40,
+          "shares": 2
+        },
+        {
+          "quantity": 3,
+          "percent": 20,
+          "shares": 1
+        }
+      ]
+    },
+    {
+      "name": "Brassey, Wythes & Wheelwright",
+      "abbrev": "BWW",
+      "description": "Named for the real Buenos Aires railway contractors of the 1860s, who built the first line out of the city (La Boca to Ensenada) before any of this map's Railways existed. Started early by a Finance House, typically in the opening ORs. No map presence - no tokens, no trains, never runs a route. Floats when its president's certificate (40%) is bought from its own treasury, paying par x2 into that treasury, on the standard par column (same six par options as Railways and Finance Houses). It also receives a one-time subsidy of par x1 from the bank on founding. Its Operating Round turn is a single financial-operations action: Redeem, Reissue, Buy or Start (buy into or start a Railway), or Merge. See 11.3.",
+      "color": "_bronze",
+      "tokens": "one",
+      "minor": true,
+      "shares": [
+        {
+          "quantity": 1,
+          "label": "President's Certificate",
+          "percent": 40,
+          "shares": 2
+        },
+        {
+          "quantity": 3,
+          "percent": 20,
+          "shares": 1
+        }
+      ]
+    },
+    {
+      "name": "John & Matthew Clark",
+      "abbrev": "J&MC",
+      "description": "Named for the real Clark brothers, granted an 1886 concession to extend the East Argentine Railway toward Corrientes - contemporaries of this game's 1887 setting. Started early by a Finance House, typically in the opening ORs. No map presence - no tokens, no trains, never runs a route. Floats when its president's certificate (40%) is bought from its own treasury, paying par x2 into that treasury, on the standard par column (same six par options as Railways and Finance Houses). It also receives a one-time subsidy of par x1 from the bank on founding. Its Operating Round turn is a single financial-operations action: Redeem, Reissue, Buy or Start (buy into or start a Railway), or Merge. See 11.3.",
+      "color": "_teal",
+      "tokens": "one",
+      "minor": true,
+      "shares": [
+        {
+          "quantity": 1,
+          "label": "President's Certificate",
+          "percent": 40,
+          "shares": 2
+        },
+        {
+          "quantity": 3,
+          "percent": 20,
+          "shares": 1
+        }
+      ]
+    },
+    {
+      "name": "John Meiggs & Co.",
+      "abbrev": "MEIG",
+      "description": "Named for the real British contracting firm that took over the Bahia Blanca & North Western concession in 1887 - the very year this game is set. Started early by a Finance House, typically in the opening ORs. No map presence - no tokens, no trains, never runs a route. Floats when its president's certificate (40%) is bought from its own treasury, paying par x2 into that treasury, on the standard par column (same six par options as Railways and Finance Houses). It also receives a one-time subsidy of par x1 from the bank on founding. Its Operating Round turn is a single financial-operations action: Redeem, Reissue, Buy or Start (buy into or start a Railway), or Merge. See 11.3.",
+      "color": "_stone",
+      "tokens": "one",
+      "minor": true,
+      "shares": [
+        {
+          "quantity": 1,
+          "label": "President's Certificate",
+          "percent": 40,
+          "shares": 2
+        },
+        {
+          "quantity": 3,
+          "percent": 20,
+          "shares": 1
+        }
+      ]
+    }
+  ],
+  "trains": [
+    {
+      "name": "2",
+      "quantity": 7,
+      "price": 80,
+      "color": "yellow",
+      "image": "2T",
+      "rust": "4"
+    },
+    {
+      "name": "3",
+      "quantity": 5,
+      "price": 150,
+      "color": "green",
+      "image": "3T",
+      "rust": "5"
+    },
+    {
+      "name": "4",
+      "quantity": 3,
+      "price": 250,
+      "color": "green",
+      "image": "4T",
+      "rust": "6"
+    },
+    {
+      "name": "5",
+      "quantity": 3,
+      "price": 400,
+      "color": "brown",
+      "image": "5T",
+      "rust": "D"
+    },
+    {
+      "name": "6",
+      "quantity": 2,
+      "price": 500,
+      "color": "brown",
+      "image": "6T"
+    },
+    {
+      "name": "D",
+      "quantity": "∞",
+      "print": 6,
+      "price": 700,
+      "color": "gray",
+      "image": "DT"
+    }
+  ],
+  "phases": [
+    {
+      "name": "2",
+      "limit": 4,
+      "rounds": 1,
+      "tiles": "yellow",
+      "notes": [
+        "Two track actions per turn (two lays, or one lay and one upgrade) in every phase."
+      ]
+    },
+    {
+      "name": "3",
+      "limit": 4,
+      "rounds": 2,
+      "tiles": "green"
+    },
+    {
+      "name": "4",
+      "limit": 3,
+      "rounds": 2,
+      "tiles": "green"
+    },
+    {
+      "name": "5",
+      "limit": 3,
+      "rounds": 3,
+      "tiles": "brown",
+      "notes": [
+        "Kilometric Guarantee halves.",
+        "BAWR forced exchange fires."
+      ]
+    },
+    {
+      "name": "6",
+      "limit": 2,
+      "rounds": 3,
+      "tiles": "brown",
+      "notes": [
+        "Kilometric Guarantee closes with clawback."
+      ]
+    },
+    {
+      "name": "D",
+      "limit": 2,
+      "rounds": 3,
+      "tiles": "brown",
+      "notes": [
+        "Game-end trigger."
+      ]
+    }
+  ],
+  "privates": [
+    {
+      "name": "BAGS Concession",
+      "price": 200,
+      "description": "20% BAGS president's certificate. Closes when BAGS operates.",
+      "icon": "train",
+      "iconColor": "red",
+      "revenue": 60
+    },
+    {
+      "name": "BAWR Concession",
+      "price": 200,
+      "description": "20% BAWR president's certificate. Closes when BAWR operates.",
+      "icon": "train",
+      "iconColor": "violet",
+      "revenue": 40
+    },
+    {
+      "name": "Baring Charter",
+      "price": 160,
+      "description": "40% president's certificate for Baring Brothers. Purchasing this floats Baring Brothers; the winning bid is paid into its treasury, and the buyer sets its par value. Baring Brothers itself holds one 20% Construction Company seed certificate and one 10% Railway seed certificate, per Setup. They belong to the Finance House, not to the buyer. Closes upon receipt of charter.",
+      "icon": "token",
+      "iconColor": "navyBlue"
+    },
+    {
+      "name": "Hambro Charter",
+      "price": 160,
+      "description": "40% president's certificate for C.J. Hambro & Co. Purchasing this floats C.J. Hambro & Co.; the winning bid is paid into its treasury, and the buyer sets its par value. C.J. Hambro & Co. itself holds one 20% Construction Company seed certificate and one 10% Railway seed certificate, per Setup. They belong to the Finance House, not to the buyer. Closes upon receipt of charter.",
+      "icon": "token",
+      "iconColor": "lightBlue"
+    },
+    {
+      "name": "Murrieta Charter",
+      "price": 160,
+      "description": "40% president's certificate for E. Murrieta & Co. Purchasing this floats E. Murrieta & Co.; the winning bid is paid into its treasury, and the buyer sets its par value. E. Murrieta & Co. itself holds one 20% Construction Company seed certificate and one 10% Railway seed certificate, per Setup. They belong to the Finance House, not to the buyer. Closes upon receipt of charter.",
+      "icon": "token",
+      "iconColor": "yellow"
+    },
+    {
+      "name": "Baring & Robertson Credit",
+      "price": 60,
+      "revenue": 15,
+      "company": "BAGS",
+      "description": "Comes with a 10% BAGS share. Once per game, owner may pull the Confidence Track back one space. Not corporate-purchasable -- this power belongs to the owner, not a Railway. Closes at the start of phase 5.",
+      "icon": "token",
+      "iconColor": "navyBlue"
+    },
+    {
+      "name": "Petro & Ladd Construction Contract",
+      "price": 75,
+      "revenue": 15,
+      "company": "BAGS",
+      "description": "Comes with a 10% BAGS share. Corporate-purchasable by a Railway. Closes at the start of phase 5.",
+      "icon": "bridge"
+    },
+    {
+      "name": "Robert Stephenson & Co. Locomotive Order",
+      "price": 90,
+      "revenue": 15,
+      "company": "BAGS",
+      "description": "Comes with a 10% BAGS share. Pays its owner 10% of the purchase price of the first train bought from the bank in each Operating Round Set -- once per set, no matter how many trains or train types are bought during that set, not once per individual OR. Corporate-purchasable by a Railway. Closes at the start of phase 5.",
+      "icon": "train",
+      "iconColor": "red"
+    },
+    {
+      "name": "Henderson Transfer",
+      "price": 70,
+      "revenue": 15,
+      "description": "May exchange, during a Stock Round, for a 10% share of the BAWR. Closes at the start of phase 5.",
+      "icon": "wheat"
+    },
+    {
+      "name": "La Porteña Works",
+      "price": 85,
+      "revenue": 15,
+      "description": "Named for Argentina's first steam locomotive, which ran on BAWR's own predecessor line starting in 1857. May exchange, during a Stock Round, for a 10% share of the BAWR. Closes at the start of phase 5.",
+      "icon": "train",
+      "iconColor": "yellow"
+    },
+    {
+      "name": "Anderson Paz Purchase Agreement",
+      "price": 55,
+      "revenue": 10,
+      "description": "May exchange, during a Stock Round, for a 10% share of the BAWR. Closes at the start of phase 5.",
+      "icon": "wheat"
+    },
+    {
+      "name": "Kilometric Guarantee",
+      "price": 35,
+      "revenue": "$15/token",
+      "description": "Corporate-purchasable by a Railway. Once owned by a Railway, pays a subsidy of $15 per station token that Railway has built (including its home station) each Operating Round. In phase 5, the subsidy drops to a flat $7 per token per OR. At the start of phase 6, instead of continuing to pay a subsidy, the owning Railway must pay the bank a one-time clawback of $15 per station token it has built. The private then closes.",
+      "icon": "train",
+      "iconColor": "yellow"
+    },
+    {
+      "name": "La Boca Docks Lease",
+      "price": 70,
+      "revenue": 15,
+      "description": "Corporate-purchasable by a Railway. Ignores terrain cost the first time this Railway builds track into Buenos Aires - the historic La Boca docks sat on reclaimed swampland at the mouth of the Riachuelo, which is exactly the swamp terrain cost this waives. Closes at the start of phase 5.",
+      "icon": "port",
+      "iconColor": "navyBlue"
+    },
+    {
+      "name": "Parana Ferry Company",
+      "price": 60,
+      "revenue": 15,
+      "description": "Corporate-purchasable by a Railway: permanently substitutes for a normal ferry marker on that Railway. Hexes F24 and G21 (marked with the ferry icon on the map) cannot be used by any Railway that doesn't own this private. This is the only way to reach the Atlantic Export off-board. Closes at the start of phase 5.",
+      "icon": "ferry",
+      "iconColor": "lightBlue"
+    },
+    {
+      "name": "Lombard Street",
+      "price": 135,
+      "description": "Closed upon receipt of Lombard charter.",
+      "icon": "token",
+      "iconColor": "navyBlue"
+    },
+    {
+      "name": "Estancia Land Grant",
+      "price": 45,
+      "revenue": 5,
+      "description": "4-PLAYER ONLY. Corporate-purchasable by a Railway. A Railway cannot build track into hex J10 (a plain countryside hex just outside Tandil, in the historic ranching heartland of Buenos Aires province) until this private is either bought into a Railway's treasury or closes. Closes at the start of phase 5. Pays its owner a flat $50 bonus when it closes, instead of a special power.",
+      "icon": "wheat",
+      "iconColor": "yellow"
+    }
+  ],
+  "stock": {
+    "type": "2D",
+    "market": [
+      [
+        194,
+        210,
+        226,
+        245,
+        264,
+        285,
+        308,
+        333,
+        359,
+        388,
+        419,
+        453,
+        489,
+        {
+          "value": 516,
+          "label": 516,
+          "color": "_gold"
+        }
+      ],
+      [
+        161,
+        174,
+        188,
+        203,
+        219,
+        237,
+        256,
+        276,
+        298,
+        322,
+        348,
+        376,
+        406,
+        438
+      ],
+      [
+        134,
+        144,
+        {
+          "value": 156,
+          "label": 156,
+          "par": true
+        },
+        168,
+        182,
+        197,
+        212,
+        229,
+        248,
+        267,
+        289,
+        312,
+        337
+      ],
+      [
+        111,
+        120,
+        {
+          "value": 130,
+          "label": 130,
+          "par": true
+        },
+        140,
+        152,
+        164,
+        177,
+        191,
+        206,
+        223,
+        241,
+        260
+      ],
+      [
+        93,
+        100,
+        {
+          "value": 108,
+          "label": 108,
+          "par": true
+        },
+        117,
+        126,
+        136,
+        147,
+        159,
+        171,
+        185,
+        200
+      ],
+      [
+        79,
+        85,
+        {
+          "value": 92,
+          "label": 92,
+          "par": true
+        },
+        99,
+        107,
+        116,
+        125,
+        135,
+        146,
+        158
+      ],
+      [
+        65,
+        70,
+        {
+          "value": 76,
+          "label": 76,
+          "par": true
+        },
+        82,
+        89,
+        96,
+        103,
+        112,
+        121,
+        131
+      ],
+      [
+        51,
+        56,
+        {
+          "value": 60,
+          "label": 60,
+          "par": true
+        },
+        66,
+        71,
+        77,
+        83,
+        88,
+        95
+      ],
+      [
+        43,
+        46,
+        50,
+        54,
+        58,
+        63,
+        68,
+        73
+      ],
+      [
+        35,
+        38,
+        41,
+        45,
+        48,
+        52,
+        57
+      ],
+      [
+        29,
+        32,
+        34,
+        37,
+        40,
+        44
+      ],
+      [
+        24,
+        26,
+        28,
+        31,
+        33
+      ],
+      [
+        20,
+        22,
+        25,
+        27
+      ]
+    ],
+    "_note": "This is a full 2D exponential surface, not a hand-tuned diamond: price(row,col) = leftmost(row) * 1.08^col, with leftmost(row) decaying ~17% (x0.83) per row going down -- the same ratio the six real par values (156/130/108/92/76/60) already follow. All rows are LEFT-ALIGNED (share column 0) and widths are strictly non-increasing going down (14 at top, 4 at the floor), so a token's up-transition from any row's rightmost cell always lands on a real cell directly above it in the same column, and its down-transition from any row's leftmost cell always lands on a real cell directly below it in column 0. The six par values sit at a fixed column (index 2) across six consecutive rows, matching every corporation's 'standard par column'. Top-right corner is exactly 516 (the top price, shaded gold); bottom-left corner is 20 (the floor). Any corporation's stock price reaching 516 ends the game immediately, with no final round played out. Every value on the board is unique -- a handful of coincidental rounding collisions were nudged by 1-2 so no cell could ever be confused with another. BAGS starts at reserved 92, BAWR at reserved 76 -- both OFF this normal par track, placed directly by setup, not chosen by a player. This is a SINGLE SHARED TRACK for all thirteen corporations across all three tiers -- Railways, Construction Companies, and Finance Houses all float onto and move along the same par column and the same price cells. Any number of companies, of any tier, may occupy the same price cell simultaneously -- this is normal and not a rules exception, and is unrelated to the players' certificate limit (section 10.1), which caps what a single player holds, not what a board cell can hold."
+  },
+  "tiles": {
+    "3": 6,
+    "4": 6,
+    "5": 5,
+    "6": 5,
+    "7": 8,
+    "8": 16,
+    "9": 12,
+    "14": 3,
+    "15": 3,
+    "16": 1,
+    "17": 1,
+    "18": 1,
+    "19": 1,
+    "20": 1,
+    "21": 1,
+    "22": 1,
+    "23": 3,
+    "24": 3,
+    "25": 2,
+    "26": 2,
+    "27": 2,
+    "28": 1,
+    "29": 1,
+    "30": 1,
+    "31": 1,
+    "39": 1,
+    "40": 1,
+    "41": 1,
+    "42": 1,
+    "43": 1,
+    "44": 1,
+    "45": 2,
+    "46": 2,
+    "47": 2,
+    "57": 4,
+    "58": 4,
+    "63": 4,
+    "70": 2,
+    "83|c": 1,
+    "619": 2,
+    "624": 1,
+    "G1": 2,
+    "G2": 2,
+    "_note": "Custom manifest scaled to this map's 17 cities / 19 towns / 54 countryside hexes - replaces the borrowed 1830-family set. Two terrain-flagged hexes: Mendoza corridor (San Luis/G7 to Mendoza/E5, mountain cost 40 at F4) and the Parana crossing (Entre Rios/F26 to the mainland, water hex at F24, blocked without the Parana Ferry Company or equivalent ferry marker). G1/G2 are custom gray tiles beyond the standard 1-70 range - final art/numbering TBD when tiles are actually drawn.",
+    "1": 1,
+    "55": 1,
+    "56": 1,
+    "69": 1,
+    "630": 1,
+    "632": 1
+  },
+  "_map_TODO": "Not yet built -- this is the piece to construct directly in 18xx-maker's map editor, since its exact hex/tile-placement JSON schema wasn't confirmed. Reference: ten cities -- Tucuman (C2), Santa Fe (E3), Mendoza (A5), San Luis (B5), Cordoba (D5), Rosario (F5), Buenos Aires (H6, multi-token hub), Entre Rios (G7), La Plata (I7), Bahia Blanca (E9). Revenue triplets (yellow/green/brown): Buenos Aires 40/50/70, Rosario 30/40/60, Bahia Blanca 20/30/50, Tucuman/Mendoza/Cordoba 20/30/40, San Luis/Santa Fe/Entre Rios 10/20/30, La Plata 10/10/20. Off-board edges: North=Bolivia/Paraguay, West=Andes/Chile, East=Atlantic Export, Southeast=Montevideo.",
+  "map": {
+    "hexes": [
+      {
+        "color": "plain",
+        "hexes": [
+          "J20",
+          "M9",
+          "A15",
+          "K15",
+          "G9",
+          "H22",
+          "B16",
+          "H14",
+          "H18",
+          "C9",
+          "I7",
+          "I15",
+          "I19",
+          "J16",
+          "H8",
+          "K9",
+          "G17",
+          "H6",
+          "G11",
+          "K17",
+          "J8",
+          "I21",
+          "M7",
+          "L16",
+          "K7",
+          "C15"
+        ]
+      },
+      {
+        "color": "yellow",
+        "cities": [
+          {
+            "companies": [
+              "BAGS"
+            ],
+            "name": {
+              "name": "Buenos Aires"
+            }
+          }
+        ],
+        "hexes": [
+          "F16"
+        ],
+        "track": [
+          {
+            "side": 6,
+            "type": "straight"
+          }
+        ],
+        "values": [
+          {
+            "angle": 270,
+            "percent": 0.7,
+            "value": 20
+          }
+        ],
+        "terrain": [
+          {
+            "type": "swamp",
+            "cost": 30
+          }
+        ]
+      },
+      {
+        "color": "yellow",
+        "cities": [
+          {
+            "companies": [
+              "BAWR"
+            ],
+            "name": {
+              "name": "Buenos Aires (Oeste)"
+            }
+          }
+        ],
+        "hexes": [
+          "F12"
+        ],
+        "track": [
+          {
+            "side": 2,
+            "type": "straight"
+          }
+        ],
+        "values": [
+          {
+            "angle": 270,
+            "percent": 0.7,
+            "value": 20
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "cities": [
+          {
+            "companies": [
+              "SFW"
+            ],
+            "name": {
+              "name": "Rosario"
+            }
+          }
+        ],
+        "hexes": [
+          "E9"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "B12"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "E7"
+        ]
+      },
+      {
+        "color": "plain",
+        "cities": [
+          {
+            "companies": [
+              "BBNW"
+            ],
+            "name": {
+              "name": "Bahia Blanca"
+            }
+          }
+        ],
+        "hexes": [
+          "L8"
+        ]
+      },
+      {
+        "color": "plain",
+        "cities": [
+          {
+            "name": {
+              "name": "Santa Fe"
+            }
+          }
+        ],
+        "hexes": [
+          "D16"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "E13"
+        ]
+      },
+      {
+        "color": "gray",
+        "cities": [
+          {
+            "name": {
+              "name": "La Plata"
+            }
+          }
+        ],
+        "hexes": [
+          "G19"
+        ],
+        "values": [
+          {
+            "angle": 270,
+            "percent": 0.7,
+            "value": 40
+          }
+        ],
+        "icons": [
+          {
+            "angle": 90,
+            "percent": 0.75,
+            "type": "port"
+          }
+        ],
+        "track": [
+          {
+            "side": 2,
+            "type": "straight"
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "cities": [
+          {
+            "name": {
+              "name": "Mendoza"
+            }
+          }
+        ],
+        "hexes": [
+          "E5"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "C13"
+        ],
+        "cities": [
+          {
+            "name": {
+              "name": "Cordoba"
+            }
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "cities": [
+          {
+            "name": {
+              "name": "Rauch"
+            }
+          }
+        ],
+        "hexes": [
+          "I13"
+        ]
+      },
+      {
+        "color": "plain",
+        "cities": [
+          {
+            "name": {
+              "name": "Benito Juarez"
+            }
+          }
+        ],
+        "hexes": [
+          "K11"
+        ]
+      },
+      {
+        "color": "plain",
+        "cities": [
+          {
+            "name": {
+              "name": "Carmen de Patagones"
+            }
+          }
+        ],
+        "hexes": [
+          "N10"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "G25"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "G27"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "F26"
+        ],
+        "cities": [
+          {
+            "name": {
+              "name": "Entre Rios"
+            }
+          }
+        ]
+      },
+      {
+        "color": "offboard",
+        "track": [
+          {
+            "type": "offboard",
+            "side": 6
+          }
+        ],
+        "offBoardRevenue": {
+          "name": {
+            "name": "Montevideo"
+          },
+          "revenues": [
+            {
+              "color": "yellow",
+              "cost": "30"
+            },
+            {
+              "color": "brown",
+              "cost": "70"
+            }
+          ]
+        },
+        "hexes": [
+          "F28"
+        ]
+      },
+      {
+        "color": "offboard",
+        "track": [
+          {
+            "type": "offboard",
+            "side": 4
+          },
+          {
+            "type": "offboard",
+            "side": 5
+          }
+        ],
+        "offBoardRevenue": {
+          "name": {
+            "name": "Bolivia / Paraguay"
+          },
+          "revenues": [
+            {
+              "color": "yellow",
+              "cost": "20"
+            },
+            {
+              "color": "brown",
+              "cost": "60"
+            }
+          ]
+        },
+        "hexes": [
+          "A13"
+        ]
+      },
+      {
+        "color": "offboard",
+        "track": [
+          {
+            "type": "offboard",
+            "side": 4
+          },
+          {
+            "type": "offboard",
+            "side": 5
+          }
+        ],
+        "offBoardRevenue": {
+          "name": {
+            "name": "Andes / Chile"
+          },
+          "revenues": [
+            {
+              "color": "yellow",
+              "cost": "20"
+            },
+            {
+              "color": "brown",
+              "cost": "50"
+            }
+          ]
+        },
+        "hexes": [
+          "E3"
+        ]
+      },
+      {
+        "color": "offboard",
+        "track": [
+          {
+            "type": "offboard",
+            "side": 6
+          },
+          {
+            "type": "offboard",
+            "side": 4
+          }
+        ],
+        "offBoardRevenue": {
+          "name": {
+            "name": "Atlantic Export"
+          },
+          "revenues": [
+            {
+              "color": "yellow",
+              "cost": "40"
+            },
+            {
+              "color": "brown",
+              "cost": "90"
+            }
+          ]
+        },
+        "hexes": [
+          "F22"
+        ]
+      },
+      {
+        "color": "offboard",
+        "track": [
+          {
+            "type": "offboard",
+            "side": 1
+          },
+          {
+            "type": "offboard",
+            "side": 3
+          }
+        ],
+        "offBoardRevenue": {
+          "name": {
+            "name": "Patagonia"
+          },
+          "revenues": [
+            {
+              "color": "yellow",
+              "cost": "10"
+            },
+            {
+              "color": "brown",
+              "cost": "40"
+            }
+          ]
+        },
+        "hexes": [
+          "N12"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Chascomus"
+            }
+          }
+        ],
+        "hexes": [
+          "G13"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Las Flores"
+            },
+            "angle": 180,
+            "percent": 0.25
+          },
+          {
+            "angle": 0,
+            "percent": 0.25
+          }
+        ],
+        "hexes": [
+          "H16"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Azul"
+            }
+          }
+        ],
+        "hexes": [
+          "I9"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Ayacucho"
+            }
+          }
+        ],
+        "hexes": [
+          "I17"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Tandil"
+            },
+            "angle": 180,
+            "percent": 0.25
+          },
+          {
+            "angle": 0,
+            "percent": 0.25
+          }
+        ],
+        "hexes": [
+          "J12"
+        ]
+      },
+      {
+        "color": "green",
+        "hexes": [
+          "K13"
+        ],
+        "track": [
+          {
+            "side": 2
+          },
+          {
+            "side": 6
+          },
+          {
+            "side": 1
+          },
+          {
+            "side": 4
+          }
+        ],
+        "values": [
+          {
+            "angle": 270,
+            "percent": 0.7,
+            "value": 40
+          }
+        ],
+        "cities": [
+          {
+            "size": 2,
+            "name": {
+              "name": "Tres Arroyos"
+            }
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Campana"
+            }
+          }
+        ],
+        "hexes": [
+          "E15"
+        ]
+      },
+      {
+        "color": "green",
+        "hexes": [
+          "D12"
+        ],
+        "track": [
+          {
+            "side": 2
+          },
+          {
+            "side": 3
+          },
+          {
+            "side": 1
+          },
+          {
+            "side": 4
+          }
+        ],
+        "values": [
+          {
+            "angle": 270,
+            "percent": 0.7,
+            "value": 30
+          }
+        ],
+        "cities": [
+          {
+            "size": 2,
+            "name": {
+              "name": "Zarate"
+            }
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Pergamino"
+            }
+          }
+        ],
+        "hexes": [
+          "D10"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Galvez"
+            }
+          }
+        ],
+        "hexes": [
+          "D14"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Rafaela"
+            }
+          }
+        ],
+        "hexes": [
+          "C11"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Banfield"
+            }
+          }
+        ],
+        "hexes": [
+          "F14"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Remedios de Escalada"
+            }
+          }
+        ],
+        "hexes": [
+          "F18"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Lujan"
+            },
+            "angle": 180,
+            "percent": 0.25
+          },
+          {
+            "angle": 0,
+            "percent": 0.25
+          }
+        ],
+        "hexes": [
+          "F8"
+        ]
+      },
+      {
+        "color": "gray",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Dolores"
+            }
+          }
+        ],
+        "hexes": [
+          "J18"
+        ],
+        "values": [
+          {
+            "angle": 270,
+            "percent": 0.7,
+            "value": 30
+          }
+        ],
+        "icons": [
+          {
+            "angle": 90,
+            "percent": 0.75,
+            "type": "port"
+          }
+        ],
+        "track": [
+          {
+            "side": 2,
+            "type": "straight",
+            "end": 0.5
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Olavarria"
+            }
+          }
+        ],
+        "hexes": [
+          "H10"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Viedma"
+            }
+          }
+        ],
+        "hexes": [
+          "M11"
+        ]
+      },
+      {
+        "color": "plain",
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Bahia San Blas"
+            }
+          }
+        ],
+        "hexes": [
+          "L14"
+        ]
+      },
+      {
+        "color": "plain",
+        "terrain": [
+          {
+            "type": "mountain",
+            "cost": 40
+          }
+        ],
+        "hexes": [
+          "D4"
+        ]
+      },
+      {
+        "color": "plain",
+        "terrain": [
+          {
+            "type": "mountain",
+            "cost": 30
+          }
+        ],
+        "hexes": [
+          "D6"
+        ]
+      },
+      {
+        "color": "plain",
+        "terrain": [
+          {
+            "type": "mountain",
+            "cost": 30
+          }
+        ],
+        "hexes": [
+          "D8"
+        ]
+      },
+      {
+        "color": "plain",
+        "terrain": [
+          {
+            "type": "mountain",
+            "cost": 40
+          }
+        ],
+        "hexes": [
+          "F4"
+        ]
+      },
+      {
+        "color": "plain",
+        "terrain": [
+          {
+            "type": "mountain",
+            "cost": 30
+          }
+        ],
+        "hexes": [
+          "B14"
+        ]
+      },
+      {
+        "color": "plain",
+        "terrain": [
+          {
+            "type": "river",
+            "cost": 30
+          }
+        ],
+        "hexes": [
+          "D18"
+        ]
+      },
+      {
+        "color": "plain",
+        "terrain": [
+          {
+            "type": "river",
+            "cost": 20
+          }
+        ],
+        "hexes": [
+          "E17"
+        ]
+      },
+      {
+        "color": "water",
+        "hexes": [
+          "G21"
+        ],
+        "track": [
+          {
+            "side": 3,
+            "type": "gentle",
+            "cross": "under"
+          },
+          {
+            "side": 2,
+            "type": "gentle",
+            "cross": "over"
+          }
+        ],
+        "icons": [
+          {
+            "angle": 90,
+            "percent": 0.75,
+            "type": "ferry"
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "terrain": [
+          {
+            "type": "swamp",
+            "cost": 40
+          }
+        ],
+        "hexes": [
+          "H20"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "M13"
+        ]
+      },
+      {
+        "color": "plain",
+        "towns": [
+          {
+            "name": {
+              "name": "La Portena (1857)"
+            }
+          }
+        ],
+        "hexes": [
+          "G15"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "H24"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "H12"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "I11"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "L12"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "L10"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "E11"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "G5"
+        ],
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Chivilcoy"
+            }
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "G7"
+        ],
+        "cities": [
+          {
+            "companies": [
+              "BAP"
+            ],
+            "name": {
+              "name": "San Luis"
+            }
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "F10"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "F6"
+        ],
+        "centerTowns": [
+          {
+            "name": {
+              "name": "Mercedes"
+            }
+          }
+        ]
+      },
+      {
+        "color": "water",
+        "hexes": [
+          "F24"
+        ],
+        "track": [
+          {
+            "side": 1,
+            "type": "straight"
+          },
+          {
+            "side": 4,
+            "type": "straight"
+          }
+        ],
+        "icons": [
+          {
+            "angle": 30,
+            "percent": 0.55,
+            "type": "ferry"
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "A11"
+        ],
+        "cities": [
+          {
+            "name": {
+              "name": "Salta"
+            }
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "B10"
+        ],
+        "cities": [
+          {
+            "companies": [
+              "ANW"
+            ],
+            "name": {
+              "name": "Tucuman"
+            }
+          }
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "B8"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "A9"
+        ]
+      },
+      {
+        "color": "water",
+        "hexes": [
+          "J14"
+        ]
+      },
+      {
+        "color": "water",
+        "hexes": [
+          "M15"
+        ]
+      },
+      {
+        "color": "water",
+        "hexes": [
+          "J20"
+        ]
+      },
+      {
+        "color": "water",
+        "hexes": [
+          "O11"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "L6"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "N8"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "C17"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "F20"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "G23"
+        ]
+      },
+      {
+        "color": "plain",
+        "hexes": [
+          "J10"
+        ],
+        "companies": [
+          {
+            "label": "ELG",
+            "color": "green",
+            "radius": 8,
+            "bottom": true
+          }
+        ]
+      }
+    ]
+  }
+}

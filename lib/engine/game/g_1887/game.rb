@@ -210,6 +210,12 @@ module Engine
           ])
         end
 
+        # As 1871: make sure privates and unsold companies (the auction
+        # piles, which have no owner) show their values on the player card.
+        def show_value_of_companies?(_owner)
+          true
+        end
+
         # First Stock Round: least cash first, seating order breaks ties
         def reorder_players(order = nil, **kwargs)
           order ||= :least_cash if @round.is_a?(Engine::Round::Auction)

@@ -103,6 +103,35 @@ module Engine
           super
           deal_seed_certificates
           deal_corporate_seeds
+          PREFLOATED.each { |id, price| prefloat(corporation_by_id(id), price) }
+        end
+
+        # Railways floated at Setup => their fixed starting price
+        PREFLOATED = { 'BAGS' => 92, 'BAWR' => 76 }.freeze
+
+        # 10% certificates kept back in each Railway's IPO, unbuyable:
+        # BAWR's exchange certificates, and BAGS's three bundled with
+        # BAGS_PRIVATES.
+        HELD_OUT = 3
+
+        # Fixed price, held-out certificates reserved, the other unowned
+        # 10% certificates to the bank pool, and 10x par from the bank.
+        # The president's certificate stays put until the Concession
+        # delivers it.
+        def prefloat(railway, price)
+          par = stock_market.par_prices.find { |p| p.price == price }
+          stock_market.set_par(railway, par)
+          railway.ipoed = true
+
+          shares = railway.ipo_shares.reject(&:president)
+          shares.pop(HELD_OUT).each { |s| s.buyable = false }
+          bundle = ShareBundle.new(shares)
+          share_pool.transfer_shares(bundle, share_pool,
+                                     allow_president_change: false)
+          @log << "#{bundle.percent}% of #{railway.name} " \
+                  'is placed in the bank pool'
+
+          float_corporation(railway)
         end
 
         # One 20% seed in each Finance House to a random player;
@@ -138,10 +167,41 @@ module Engine
         # Charter private => the Finance House it floats
         CHARTERS = { 'BARC' => 'BB', 'HAMC' => 'HAM', 'MURC' => 'MUR' }.freeze
 
+        # Concession private => the Railway whose president's cert it gives
+        CONCESSIONS = { 'BAGSC' => 'BAGS', 'BAWRC' => 'BAWR' }.freeze
+
         def after_buy_company(player, company, price)
+          if (rail_id = CONCESSIONS[company.id])
+            return give_presidency(player, corporation_by_id(rail_id))
+          end
+
+          bags = BAGS_PRIVATES.include?(company.id)
+          return give_held_share(player, corporation_by_id('BAGS')) if bags
+
           return super unless (fh_id = CHARTERS[company.id])
 
           float_finance_house(player, company, corporation_by_id(fh_id), price)
+        end
+
+        # Privates that each come with one held-out 10% BAGS certificate
+        BAGS_PRIVATES = %w[BRC PLC RSL].freeze
+
+        # Neither hand-over may change the president by share count:
+        # the Concession buyer is president even if another player
+        # already holds 20% or more from seeds and BAGS_PRIVATES.
+        def give_held_share(player, railway)
+          share = railway.reserved_shares.first
+          share.buyable = true
+          share_pool.buy_shares(player, share, exchange: :free,
+                                               allow_president_change: false)
+        end
+
+        def give_presidency(player, railway)
+          share_pool.buy_shares(player, railway.presidents_share,
+                                exchange: :free,
+                                allow_president_change: false)
+          railway.owner = player
+          @log << "#{player.name} becomes the president of #{railway.name}"
         end
 
         def float_finance_house(player, charter, fh, price)

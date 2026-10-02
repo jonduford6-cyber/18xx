@@ -216,6 +216,31 @@ module Engine
           true
         end
 
+        # Finance Houses and Construction Companies take a financial turn
+        # instead of the railway steps
+        def financial?(entity)
+          return false unless entity&.corporation?
+
+          (FINANCE_HOUSES + CONSTRUCTION_COS).include?(entity.id)
+        end
+
+        def operating_round(round_num)
+          Engine::Round::Operating.new(self, [
+            G1887::Step::FinancialTurn,
+            G1887::Step::Bankrupt,
+            G1887::Step::Exchange,
+            G1887::Step::SpecialTrack,
+            G1887::Step::BuyCompany,
+            G1887::Step::Track,
+            G1887::Step::Token,
+            G1887::Step::Route,
+            G1887::Step::Dividend,
+            G1887::Step::DiscardTrain,
+            G1887::Step::BuyTrain,
+            [G1887::Step::BuyCompany, { blocks: true }],
+          ], round_num: round_num)
+        end
+
         # First Stock Round: least cash first, seating order breaks ties
         def reorder_players(order = nil, **kwargs)
           order ||= :least_cash if @round.is_a?(Engine::Round::Auction)

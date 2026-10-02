@@ -96,9 +96,13 @@ module Engine
 
         FINANCE_HOUSES = %w[BB HAM MUR].freeze
 
+        CONSTRUCTION_COS = %w[BWW J&MC MEIG].freeze
+        SEED_RAILWAYS = %w[SFW BBNW ANW BAP].freeze
+
         def setup
           super
           deal_seed_certificates
+          deal_corporate_seeds
         end
 
         # One 20% seed in each Finance House to a random player;
@@ -111,9 +115,24 @@ module Engine
           give_seed(players[3], corporation_by_id('BAGS')) if players[3]
         end
 
-        def give_seed(player, corporation)
+        # Each Finance House gets 20% of a random Construction Company;
+        # each Construction Company gets 10% of a random Railway.
+        # The fourth Railway is left undealt.
+        def deal_corporate_seeds
+          deal_to_corporations(FINANCE_HOUSES, CONSTRUCTION_COS)
+          deal_to_corporations(CONSTRUCTION_COS, SEED_RAILWAYS)
+        end
+
+        def deal_to_corporations(holder_ids, target_ids)
+          targets = target_ids.sort_by { rand }
+          holder_ids.zip(targets) do |holder, target|
+            give_seed(corporation_by_id(holder), corporation_by_id(target))
+          end
+        end
+
+        def give_seed(holder, corporation)
           share = corporation.ipo_shares.reject(&:president).first
-          share_pool.buy_shares(player, share, exchange: :free)
+          share_pool.buy_shares(holder, share, exchange: :free)
         end
 
         # Charter private => the Finance House it floats

@@ -41,9 +41,9 @@ module Engine
             'Pass (price moves left)'
           end
 
-          def bid_description
-            'Start the selected company: the whole amount goes into its ' \
-              'treasury, and its par is the highest par not above half of it'
+          # Button text on the shared amount box
+          def bid_str(_corporation)
+            'Buy'
           end
 
           # Construction Companies this Finance House may start now

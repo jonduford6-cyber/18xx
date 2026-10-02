@@ -38,7 +38,8 @@ module View
             ))
           end
 
-          bid_button = h(:button, { on: { click: place_bid } }, 'Place Bid')
+          bid_str = step.respond_to?(:bid_str) ? step.bid_str(@biddable) : 'Place Bid'
+          bid_button = h(:button, { on: { click: place_bid } }, bid_str)
           children << h(:div, [price_input, bid_button])
 
           h('div.center', children)

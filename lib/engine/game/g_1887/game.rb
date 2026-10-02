@@ -105,6 +105,15 @@ module Engine
           deal_seed_certificates
           deal_corporate_seeds
           PREFLOATED.each { |id, price| prefloat(corporation_by_id(id), price) }
+          mark_estancia
+        end
+
+        # Estancia Land Grant (4 players only) concerns J10: show its marker
+        # there. Drawn only; with no blocks_hexes ability, track into J10 is
+        # not blocked (its corporate purchase and closing are not built yet).
+        def mark_estancia
+          elg = company_by_id('ELG')
+          hex_by_id('J10').tile.add_blocker!(elg) if elg
         end
 
         # Railways floated at Setup => their fixed starting price

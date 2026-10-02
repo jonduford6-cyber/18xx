@@ -155,7 +155,7 @@ module Engine
         CORPORATIONS = [
           {
             sym: 'BAGS',
-            name: 'Buenos Aires Great Southern',
+            name: 'Buenos Aires Great Southern (RW)',
             logo: '1887/BAGS',
             float_percent: 20,
             corporation_can_ipo: true,
@@ -165,7 +165,7 @@ module Engine
           },
           {
             sym: 'BAWR',
-            name: 'Buenos Aires Western',
+            name: 'Buenos Aires Western (RW)',
             logo: '1887/BAWR',
             float_percent: 20,
             corporation_can_ipo: true,
@@ -175,7 +175,7 @@ module Engine
           },
           {
             sym: 'SFW',
-            name: 'Santa Fe Western',
+            name: 'Santa Fe Western (RW)',
             logo: '1887/SFW',
             float_percent: 20,
             corporation_can_ipo: true,
@@ -186,7 +186,7 @@ module Engine
           },
           {
             sym: 'BBNW',
-            name: 'Bahia Blanca & North Western',
+            name: 'Bahia Blanca & North Western (RW)',
             logo: '1887/BBNW',
             float_percent: 20,
             corporation_can_ipo: true,
@@ -196,7 +196,7 @@ module Engine
           },
           {
             sym: 'ANW',
-            name: 'Argentine North Western',
+            name: 'Argentine North Western (RW)',
             logo: '1887/ANW',
             float_percent: 20,
             corporation_can_ipo: true,
@@ -206,7 +206,7 @@ module Engine
           },
           {
             sym: 'BAP',
-            name: 'Buenos Aires & Pacific',
+            name: 'Buenos Aires & Pacific (RW)',
             logo: '1887/BAP',
             float_percent: 20,
             corporation_can_ipo: true,
@@ -216,7 +216,7 @@ module Engine
           },
           {
             sym: 'ER',
-            name: 'Entre Rios Railway',
+            name: 'Entre Rios Railway (RW)',
             logo: '1887/ER',
             float_percent: 20,
             corporation_can_ipo: true,
@@ -227,7 +227,7 @@ module Engine
           },
           {
             sym: 'BB',
-            name: 'Baring Brothers',
+            name: 'Baring Brothers (FH)',
             logo: '1887/BB',
             float_percent: 40,
             capitalization: :incremental,
@@ -238,7 +238,7 @@ module Engine
           },
           {
             sym: 'HAM',
-            name: 'C.J. Hambro & Co.',
+            name: 'C.J. Hambro & Co. (FH)',
             logo: '1887/HAM',
             float_percent: 40,
             capitalization: :incremental,
@@ -250,7 +250,7 @@ module Engine
           },
           {
             sym: 'MUR',
-            name: 'E. Murrieta & Co.',
+            name: 'E. Murrieta & Co. (FH)',
             logo: '1887/MUR',
             float_percent: 40,
             capitalization: :incremental,
@@ -261,7 +261,7 @@ module Engine
           },
           {
             sym: 'BWW',
-            name: 'Brassey, Wythes & Wheelwright',
+            name: 'Brassey, Wythes & Wheelwright (CC)',
             logo: '1887/BWW',
             float_percent: 40,
             corporation_can_ipo: true,
@@ -271,7 +271,7 @@ module Engine
           },
           {
             sym: 'J&MC',
-            name: 'John & Matthew Clark',
+            name: 'John & Matthew Clark (CC)',
             logo: '1887/JMC',
             float_percent: 40,
             corporation_can_ipo: true,
@@ -281,7 +281,7 @@ module Engine
           },
           {
             sym: 'MEIG',
-            name: 'John Meiggs & Co.',
+            name: 'John Meiggs & Co. (CC)',
             logo: '1887/MEIG',
             float_percent: 40,
             corporation_can_ipo: true,

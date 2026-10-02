@@ -241,6 +241,20 @@ module Engine
           ], round_num: round_num)
         end
 
+        # Market tab: the shared page shows this table below the grid (1846
+        # uses it for price-movement rules). 1887 lists each cell holding
+        # two or more corporations, top of the stack (operates first) to
+        # bottom. With no shared cell only the headings show.
+        def price_movement_chart
+          cells = @stock_market.market.flatten.compact
+            .select { |sp| sp.corporations.size > 1 }
+            .sort_by { |sp| -sp.price }
+          rows = cells.map do |sp|
+            [format_currency(sp.price), sp.corporations.map(&:name).join(', ')]
+          end
+          [['Price', 'Stack, top to bottom'], *rows]
+        end
+
         # First Stock Round: least cash first, seating order breaks ties
         def reorder_players(order = nil, **kwargs)
           order ||= :least_cash if @round.is_a?(Engine::Round::Auction)

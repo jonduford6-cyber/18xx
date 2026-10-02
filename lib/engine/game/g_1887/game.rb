@@ -172,6 +172,15 @@ module Engine
           @init_round ||= Engine::Round::Auction.new(self, [G1887::Step::Auction])
         end
 
+        def stock_round
+          Engine::Round::Stock.new(self, [
+            Engine::Step::DiscardTrain,
+            Engine::Step::Exchange,
+            Engine::Step::SpecialTrack,
+            G1887::Step::BuySellParShares,
+          ])
+        end
+
         # First Stock Round: least cash first, seating order breaks ties
         def reorder_players(order = nil, **kwargs)
           order ||= :least_cash if @round.is_a?(Engine::Round::Auction)

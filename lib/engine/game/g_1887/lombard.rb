@@ -9,8 +9,9 @@ module Engine
       # Lombard Street (sections 3, 10.1, 10.6): a holder of certificates and
       # cash with its own treasury, owned and acted for by the buyer of the
       # Lombard Street private. A minor that can hold shares (as 1880's);
-      # it never floats, so it never takes an operating turn.
-      class Lombard < Engine::Minor
+      # it never floats, so it never takes an operating turn. Named Minor (as
+      # 1880's) so saved actions record its type as 'minor'.
+      class Minor < Engine::Minor
         include ShareHolder
 
         LOGO = 'data:image/svg+xml;charset=utf-8,' \

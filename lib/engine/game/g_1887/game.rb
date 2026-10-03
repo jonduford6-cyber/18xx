@@ -225,8 +225,8 @@ module Engine
         end
 
         def init_minors
-          [G1887::Lombard.new(sym: 'Lombard', name: 'Lombard Street', tokens: [],
-                              color: '#1f3a5f', text_color: '#ffffff')]
+          [G1887::Minor.new(sym: 'Lombard', name: 'Lombard Street', tokens: [],
+                            color: '#1f3a5f', text_color: '#ffffff')]
         end
 
         def lombard
@@ -502,6 +502,43 @@ module Engine
           @round.recalculate_order if @round.is_a?(Engine::Round::Operating)
         end
 
+        # Section 3: Lombard Street starts a company like a player: par x 2
+        # into the company (Lombard pays what it has, its owner the rest),
+        # the bank subsidy as for any start (not ER), the marker waits for
+        # the next Operating Round; Lombard is the president
+        def lombard_start(company, share_price)
+          amount = share_price.price * 2
+          from_lombard = [lombard.cash, amount].min
+          from_owner = amount - from_lombard
+          owner = lombard.owner
+          start_company(lombard, company, amount, payers: [[lombard, from_lombard], [owner, from_owner]])
+          company.owner = lombard # the engine names only players and corporations president
+          @log << "#{lombard.full_name} pays #{format_currency(from_lombard)} and #{owner.name} pays " \
+                  "#{format_currency(from_owner)}; #{lombard.full_name} is the president of #{company.name}"
+          check_presidency(company)
+        end
+
+        # Unstarted Construction Companies and startable Railways (never BAGS
+        # or BAWR; Entre Rios from phase 4)
+        def lombard_startable_companies
+          startable_construction_companies + startable_railways
+        end
+
+        def can_par?(corporation, entity)
+          lombard&.owner == entity && lombard_startable_companies.include?(corporation)
+        end
+
+        # The final Stock Round (after the Diesel)
+        def final_stock_round?
+          @round.is_a?(Engine::Round::Stock) && @final_turn && @turn == @final_turn
+        end
+
+        # One space lower on the market (left, or down a row at the edge)
+        def lower_price(corporation)
+          sp = corporation.share_price
+          @stock_market.share_price(@stock_market.left(corporation, sp.coordinates)).price
+        end
+
         # Not yet started: the president's certificate is in its treasury
         def startable_construction_companies
           CONSTRUCTION_COS.map { |id| corporation_by_id(id) }
@@ -524,12 +561,12 @@ module Engine
         # the starter takes the president's certificate. The price marker
         # waits beside the market until the next Operating Round (11.1), so
         # the new company cannot operate, or be traded, before then.
-        def start_company(starter, company, amount)
+        def start_company(starter, company, amount, payers: [[starter, amount]])
           par = finance_house_par(amount)
           @log << "#{starter.name} starts #{company.name} with " \
                   "#{format_currency(amount)} (par #{format_currency(par.price)})"
           share_pool.buy_shares(starter, company.presidents_share, exchange: :free)
-          starter.spend(amount, company)
+          payers.each { |payer, pay| payer.spend(pay, company) if pay.positive? }
           unless NO_SUBSIDY.include?(company.id)
             @bank.spend(par.price, company)
             @log << "bank pays #{company.name} subsidy #{format_currency(par.price)}"
@@ -655,7 +692,7 @@ module Engine
           held = ->(h) { h.percent_of(railway) }
           players = pres.player? ? @players.rotate(@players.index(pres)) : @players
           corps = @corporations.reject { |c| c.closed? || c == railway }
-          top = [pres, *players, *corps].max_by(&held)
+          top = [pres, *players, *@minors, *corps].max_by(&held) # Lombard Street counts like a player
           return unless held[top] > held[pres]
 
           share_pool.change_president(railway.presidents_share, pres, top)

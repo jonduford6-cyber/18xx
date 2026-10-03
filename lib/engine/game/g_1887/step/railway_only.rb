@@ -23,7 +23,7 @@ module Engine
           end
         end
 
-        %i[Bankrupt BuyCompany BuyTrain DiscardTrain Dividend Exchange
+        %i[Bankrupt BuyCompany BuyTrain DiscardTrain Exchange
            Route SpecialTrack Token Track].each do |name|
           const_set(name, Class.new(Engine::Step.const_get(name)) { include RailwayOnly })
         end

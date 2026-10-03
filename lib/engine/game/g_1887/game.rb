@@ -171,7 +171,42 @@ module Engine
         PHASE_5_CLOSINGS = %w[BRC PLC RSL HT LPW APPA LBDL ELG].freeze
         ESTANCIA_BONUS = 50
 
+        # 10.4: Henderson Transfer, La Porteña Works and Anderson Paz Purchase
+        # Agreement each exchange, in a Stock Round, for one of BAWR's three
+        # held-back 10% certificates, at no cost; the private closes
+        EXCHANGE_PRIVATES = %w[HT LPW APPA].freeze
+
+        def exchange_privates(player)
+          player.companies.select { |c| EXCHANGE_PRIVATES.include?(c.id) && !c.closed? }
+        end
+
+        def held_back_bawr
+          bawr = corporation_by_id('BAWR')
+          bawr.shares_of(bawr).reject { |s| s.buyable || s.president }
+        end
+
+        def exchange_bawr!(company, forced: false)
+          owner = company.owner
+          share = held_back_bawr.first
+          return company.close! if !share || !owner&.player?
+
+          bawr = share.corporation
+          share.buyable = true
+          share_pool.transfer_shares(share.to_bundle, owner, allow_president_change: false)
+          company.close!
+          @log << if forced
+                    "#{company.name} closes; #{owner.name} receives a 10% #{bawr.name} certificate (forced exchange)"
+                  else
+                    "#{owner.name} exchanges #{company.name} for a 10% #{bawr.name} certificate; #{company.name} closes"
+                  end
+          check_presidency(bawr)
+        end
+
         def event_close_privates!
+          # 10.4 / 14: unused exchange privates deliver their certificate first
+          EXCHANGE_PRIVATES.map { |id| company_by_id(id) }.compact.reject(&:closed?).each do |company|
+            exchange_bawr!(company, forced: true) if company.owner&.player?
+          end
           closing = PHASE_5_CLOSINGS.map { |id| company_by_id(id) }.compact.reject(&:closed?)
           @log << "-- The first 5-train was bought: #{closing.map(&:name).join(', ')} close --" unless closing.empty?
           closing.each do |company|

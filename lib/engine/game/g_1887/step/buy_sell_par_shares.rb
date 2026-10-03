@@ -24,7 +24,7 @@ module Engine
           # turn that is not a buy
           def actions(entity)
             # 10.6: a sale the control limit requires comes first
-            return %w[sell_shares] if entity == current_entity && entity.player? && !@game.forced_player_sales(entity).empty?
+            return %w[sell_shares] if entity == current_entity && entity.player? && !forced_sales(entity).empty?
 
             acts = super
             return acts unless choice_available?(entity)
@@ -33,21 +33,52 @@ module Engine
           end
 
           def choice_available?(entity)
-            entity == current_entity && entity.player? && @game.confidence_pull_back_allowed?(entity)
+            entity == current_entity && entity.player? &&
+              (@game.confidence_pull_back_allowed?(entity) || !exchange_options(entity).empty?)
+          end
+
+          # 10.4: one exchange per turn; it is not the turn's buy
+          def exchange_options(entity)
+            return [] if exchanged_this_turn? || @game.held_back_bawr.empty?
+
+            @game.exchange_privates(entity)
+          end
+
+          def exchanged_this_turn?
+            @round.current_actions.any? { |a| a.is_a?(Action::Choose) && a.choice.to_s.start_with?('exchange') }
           end
 
           def choice_name
-            'Confidence Track'
+            entity = current_entity
+            return 'Confidence Track' if exchange_options(entity).empty?
+            return 'BAWR' unless @game.confidence_pull_back_allowed?(entity)
+
+            entity.name
           end
 
           def choices
-            { 'pull_back' => "Baring & Robertson Credit: pull the track back to space #{@game.confidence - 1}" }
+            entity = current_entity
+            list = exchange_options(entity).to_h { |c| ["exchange:#{c.id}", "Exchange #{c.name} for 10% BAWR"] }
+            if @game.confidence_pull_back_allowed?(entity)
+              list['pull_back'] = "Baring & Robertson Credit: pull the track back to space #{@game.confidence - 1}"
+            end
+            list
           end
 
           def process_choose(action)
-            raise GameError, 'The Confidence Track cannot be pulled back now' unless choice_available?(action.entity)
+            entity = action.entity
+            kind, id = action.choice.split(':')
+            if kind == 'exchange'
+              company = exchange_options(entity).find { |c| c.id == id }
+              raise GameError, "#{entity.name} cannot exchange #{id} now" unless company
 
-            @game.pull_back_confidence!(action.entity)
+              @game.exchange_bawr!(company)
+              track_action(action, @game.corporation_by_id('BAWR'))
+              return
+            end
+            raise GameError, 'The Confidence Track cannot be pulled back now' unless @game.confidence_pull_back_allowed?(entity)
+
+            @game.pull_back_confidence!(entity)
           end
 
           # Presidency after a purchase follows 1887's own rule (players,
@@ -175,10 +206,27 @@ module Engine
           end
 
           # 10.6: while a forced sale is due, only that sale
+          # The standard certificate limit still forces a sale; the 60% limit
+          # follows 10.6 (forced_sales, at the start of the next turn)
+          def must_sell?(entity)
+            return false unless can_sell_any?(entity)
+
+            @game.num_certs(entity) > @game.cert_limit(entity)
+          end
+
+          # 10.6: due at the start of the player's turn (before anything but
+          # forced sales); an excess arising mid-turn waits for the next turn
+          def forced_sales(entity)
+            return [] unless entity.player?
+            return [] unless @round.current_actions.all? { |a| a.is_a?(Action::SellShares) }
+
+            @game.forced_player_sales(entity)
+          end
+
           def can_sell?(entity, bundle)
             return false if bundle.corporation.founding # nobody sells before it floats
 
-            forced = entity.player? ? @game.forced_player_sales(entity) : []
+            forced = forced_sales(entity)
             return forced.any? { |some| some.map(&:id).sort == bundle.shares.map(&:id).sort } unless forced.empty?
 
             super

@@ -55,6 +55,12 @@ module Engine
             @chain_receipt = [holder, payouts[holder]] if presides && payouts[holder]
           end
 
+          # 11.1: the Railway's own price move rechecks the order
+          def change_share_price(entity, payout)
+            super
+            @game.recheck_operating_order
+          end
+
           # PAY always moves right, WITHHOLD left, whatever the remainder
           def dividend_options(entity)
             options = super

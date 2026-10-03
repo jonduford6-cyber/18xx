@@ -372,6 +372,15 @@ module Engine
 
           direction == :right ? @stock_market.move_right(corp) : @stock_market.move_left(corp)
           log_share_price(corp, old)
+          recheck_operating_order
+        end
+
+        # 11.1: corporations operate in descending price order (ties by the
+        # stack in the cell), rechecked after every mid-round price change
+        # for those that have not operated yet. Call it after any price move
+        # during an Operating Round.
+        def recheck_operating_order
+          @round.recalculate_order if @round.is_a?(Engine::Round::Operating)
         end
 
         # Not yet started: the president's certificate is in its treasury

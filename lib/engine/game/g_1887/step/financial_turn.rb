@@ -203,6 +203,7 @@ module Engine
             old_price = entity.share_price
             @game.stock_market.move_left(entity)
             @game.log_share_price(entity, old_price)
+            @game.recheck_operating_order
           end
         end
       end

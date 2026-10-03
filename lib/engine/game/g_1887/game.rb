@@ -61,6 +61,11 @@ module Engine
         GAME_END_CHECK = { bankrupt: :immediate, stock_market: :immediate, diesel: :one_more_full_or_set }.freeze
 
         EVENTS_TEXT = Base::EVENTS_TEXT.merge(
+          'close_privates' => ['Privates close',
+                               'Baring & Robertson Credit, Petro & Ladd Construction Contract, ' \
+                               'Robert Stephenson & Co. Locomotive Order, Henderson Transfer, La Porteña Works, ' \
+                               'Anderson Paz Purchase Agreement, La Boca Docks Lease and Estancia Land Grant close ' \
+                               '(Estancia pays its owner $50); Parana Ferry Company stays open but pays no income'],
           'diesel_bought' => ['Game end',
                               'The first Diesel ends the game after this Operating Round set, ' \
                               'one final Stock Round and one final Operating Round set'],
@@ -122,10 +127,46 @@ module Engine
           { name: '2', distance: 2, price: 80, rusts_on: '4', num: 7 },
           { name: '3', distance: 3, price: 150, rusts_on: '5', num: 5 },
           { name: '4', distance: 4, price: 250, rusts_on: '6', num: 3 },
-          { name: '5', distance: 5, price: 400, rusts_on: 'D', num: 3 },
+          { name: '5', distance: 5, price: 400, rusts_on: 'D', num: 3, events: [{ 'type' => 'close_privates' }] },
           { name: '6', distance: 6, price: 500, num: 3 },
           { name: 'D', distance: 999, price: 700, num: 'unlimited', events: [{ 'type' => 'diesel_bought' }] },
         ].freeze
+
+        # Section 14: a Concession closes at the start of its Railway's first
+        # operating turn, after paying at the start of the round. (In 1887
+        # home tokens are placed exactly then, at the start of each turn.)
+        def place_home_token(corporation)
+          super
+          return unless (id = CONCESSIONS.key(corporation.id))
+
+          concession = company_by_id(id)
+          return if !concession || concession.closed?
+
+          concession.close!
+          @log << "#{concession.name} closes"
+        end
+
+        # Section 14, start of phase 5 (the first 5-train)
+        PHASE_5_CLOSINGS = %w[BRC PLC RSL HT LPW APPA LBDL ELG].freeze
+        ESTANCIA_BONUS = 50
+
+        def event_close_privates!
+          closing = PHASE_5_CLOSINGS.map { |id| company_by_id(id) }.compact.reject(&:closed?)
+          @log << "-- The first 5-train was bought: #{closing.map(&:name).join(', ')} close --" unless closing.empty?
+          closing.each do |company|
+            owner = company.owner
+            company.close!
+            next if company.id != 'ELG' || !owner
+
+            @bank.spend(ESTANCIA_BONUS, owner)
+            @log << "#{owner.name} receives #{format_currency(ESTANCIA_BONUS)} from the bank as Estancia Land Grant closes"
+          end
+          ferry = company_by_id('PFC')
+          return if !ferry || ferry.closed? || ferry.revenue.zero?
+
+          ferry.revenue = 0
+          @log << "#{ferry.name} stays open but pays no income from now on"
+        end
 
         def event_diesel_bought!
           return if @diesel_bought

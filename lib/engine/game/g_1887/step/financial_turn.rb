@@ -8,9 +8,10 @@ module Engine
     module G1887
       module Step
         # The operating turn of a Finance House or Construction Company
-        # (11.3.3): Buy one certificate, Start a Construction Company (a
-        # Finance House only), or Pass. The other financial actions are not
-        # built yet.
+        # (11.3, 11.3.3): first it may sell certificates it holds in other
+        # companies (11.3.2), then one action: Buy one certificate, Start a
+        # company, Redeem one of its own certificates, Reissue certificates
+        # from its own treasury (11.3.1), or Pass. Merge is not built yet.
         #
         # Start is offered as a 'bid' (the amount paid), which makes the
         # site show its auction screen: the startable companies as cards,
@@ -28,7 +29,7 @@ module Engine
           def actions(entity)
             return [] unless entity == current_entity
             return %w[bid pass] if @start_chosen
-            return %w[choose pass] unless buy_options(entity).empty?
+            return %w[choose pass] if !buy_options(entity).empty? || !other_options(entity).empty?
 
             available.empty? ? %w[pass] : %w[bid pass]
           end
@@ -40,6 +41,7 @@ module Engine
           def setup
             setup_auction
             @start_chosen = false
+            @sold = false
           end
 
           def description
@@ -47,7 +49,7 @@ module Engine
           end
 
           def pass_description
-            'Pass (price moves left)'
+            @sold ? 'Pass' : 'Pass (price moves left)'
           end
 
           # Button text on the shared amount box
@@ -161,26 +163,89 @@ module Engine
             end
           end
 
-          def choices
-            entity = current_entity
-            list = buy_options(entity).to_h { |o| [o[:choice], o[:label]] }
-            unless available.empty?
-              list['start'] = @game.finance_house?(entity) ? 'Start a Construction Company' : 'Start a Railway'
+          # Sell (before the action), Redeem and Reissue buttons
+          def other_options(entity)
+            return [] unless @game.financial?(entity)
+
+            fmt = ->(v) { @game.format_currency(v) }
+            list = @game.sellable_shares(entity).map do |share|
+              target = share.corporation
+              {
+                choice: "sell:#{target.id}",
+                share: share,
+                label: "Sell #{share.percent}% #{target.name} Share (#{fmt[target.share_price.price]})",
+              }
+            end
+            if (share = @game.redeemable_share(entity))
+              list << {
+                choice: 'redeem',
+                share: share,
+                label: "Redeem #{share.percent}% Market Share (#{fmt[entity.share_price.price]})",
+              }
+            end
+            shares = @game.reissuable_shares(entity)
+            shares.size.downto(1) do |n|
+              some = shares.first(n)
+              list << {
+                choice: "reissue:#{n}",
+                share: some.first,
+                label: "Reissue #{some.sum(&:percent)}% Treasury Shares " \
+                       "(#{fmt[entity.share_price.price * n]})",
+              }
             end
             list
           end
 
+          def choices
+            entity = current_entity
+            list = other_options(entity).select { |o| o[:choice].start_with?('sell:') }.to_h { |o| [o[:choice], o[:label]] }
+            list.merge!(buy_options(entity).to_h { |o| [o[:choice], o[:label]] })
+            unless available.empty?
+              list['start'] = @game.finance_house?(entity) ? 'Start a Construction Company' : 'Start a Railway'
+            end
+            list.merge(other_options(entity).reject { |o| o[:choice].start_with?('sell:') }.to_h { |o| [o[:choice], o[:label]] })
+          end
+
           def choice_name
-            available.empty? ? 'Buy' : 'Buy or Start'
+            entity = current_entity
+            others = other_options(entity).map { |o| o[:choice].split(':').first }
+            kinds = []
+            kinds << 'Sell first' if others.include?('sell')
+            kinds << 'Buy' unless buy_options(entity).empty?
+            kinds << 'Start' unless available.empty?
+            kinds << 'Redeem' if others.include?('redeem')
+            kinds << 'Reissue' if others.include?('reissue')
+            return 'Buy' if kinds.empty?
+
+            kinds.size == 1 ? kinds.first : "#{kinds[0...-1].join(', ')} or #{kinds.last}"
           end
 
           # Cards of the corporations offered, below the buyer's own card
           def show_other
-            buy_options(current_entity).map { |o| o[:share].corporation }.uniq
+            entity = current_entity
+            (buy_options(entity) + other_options(entity)).map { |o| o[:share].corporation }.uniq - [entity]
           end
 
           def process_choose(action)
             entity = action.entity
+            kind, arg = action.choice.split(':')
+            if %w[sell redeem reissue].include?(kind)
+              option = other_options(entity).find { |o| o[:choice] == action.choice }
+              raise GameError, "#{entity.name} cannot #{kind} now" unless option
+
+              case kind
+              when 'sell'
+                @game.sell_share(option[:share])
+                @sold = true
+                return
+              when 'redeem'
+                @game.redeem_share(entity, option[:share])
+              when 'reissue'
+                @game.issue_shares(entity, @game.reissuable_shares(entity).first(arg.to_i), verb: 'reissues')
+              end
+              return pass!
+            end
+
             if action.choice == 'start'
               raise GameError, "#{entity.name} cannot start a company" if available.empty?
 
@@ -196,9 +261,11 @@ module Engine
           end
 
           # 11.3: taking no action moves the price one space left (down a
-          # row at the left edge of the market).
+          # row at the left edge of the market), unless it sold this turn.
           def process_pass(action)
             super
+            return if @sold
+
             entity = action.entity
             old_price = entity.share_price
             @game.stock_market.move_left(entity)

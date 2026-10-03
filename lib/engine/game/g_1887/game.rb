@@ -306,10 +306,12 @@ module Engine
         # Issue / Reissue: certificates from the company's treasury to the
         # bank pool, all at the current market price; then down one row per
         # certificate
-        def issue_shares(corporation, shares)
+        def issue_shares(corporation, shares, verb: 'issues')
           bundle = ShareBundle.new(shares)
           bundle.share_price = corporation.share_price.price
-          share_pool.sell_shares(bundle, allow_president_change: false)
+          share_pool.sell_shares(bundle, allow_president_change: false, silent: true)
+          @log << "#{corporation.name} #{verb} #{share_pool.num_presentation(bundle)} of #{corporation.name} " \
+                  "and receives #{format_currency(bundle.price)}"
           shares.size.times { price_down(corporation) }
         end
 
@@ -826,15 +828,68 @@ module Engine
           pres = railway.owner
           return unless pres
 
-          held = ->(h) { h.percent_of(railway) }
-          players = pres.player? ? @players.rotate(@players.index(pres)) : @players
-          corps = @corporations.reject { |c| c.closed? || c == railway }
-          top = [pres, *players, *@minors, *corps].max_by(&held) # Lombard Street counts like a player
-          return unless held[top] > held[pres]
+          top = president_after(railway)
+          return if top == pres
 
           share_pool.change_president(railway.presidents_share, pres, top)
           railway.owner = top
           @log << "#{top.name} becomes the president of #{railway.name}"
+        end
+
+        # Who would be the president of the company if each holder's
+        # percentage changed by `changes` ({holder => percent}). The
+        # company's own treasury and the bank pool are never candidates.
+        def president_after(corporation, changes = {})
+          pres = corporation.owner
+          return pres unless pres
+
+          held = ->(h) { h.percent_of(corporation) + changes.fetch(h, 0) }
+          players = pres.player? ? @players.rotate(@players.index(pres)) : @players
+          corps = @corporations.reject { |c| c.closed? || c == corporation }
+          top = [pres, *players, *@minors, *corps].max_by(&held) # Lombard Street counts like a player
+          held[top] > held[pres] ? top : pres
+        end
+
+        # 11.3: certificates of other companies a Finance House or
+        # Construction Company may sell, one per company: never a
+        # president's or held-back certificate, only with a market price,
+        # within the pool limit
+        def sellable_shares(entity)
+          entity.shares.group_by(&:corporation).filter_map do |corporation, shares|
+            next if corporation == entity || !corporation.share_price
+
+            share = shares.find { |sh| sh.buyable && !sh.president }
+            share if share && share_pool.fit_in_bank?(share.to_bundle)
+          end
+        end
+
+        # Sells one certificate to the bank pool at the market price; the
+        # company's presidency may change (the existing swap), and its price
+        # moves down one row
+        def sell_share(share)
+          corporation = share.corporation
+          bundle = share.to_bundle
+          bundle.share_price = corporation.share_price.price
+          share_pool.sell_shares(bundle, allow_president_change: false)
+          check_presidency(corporation)
+          price_down(corporation)
+        end
+
+        # 11.3.1: up to how many certificates a company may reissue from its
+        # own treasury at once (pool limit; no change of presidency)
+        def reissuable_shares(corporation)
+          return [] unless corporation.share_price
+
+          shares = corporation.shares_of(corporation).select { |sh| sh.buyable && !sh.president }
+          shares.size.downto(1).each do |n|
+            some = shares.first(n)
+            percent = some.sum(&:percent)
+            next unless share_pool.percent_of(corporation) + percent <= market_share_limit(corporation)
+            next unless president_after(corporation, corporation => -percent) == corporation.owner
+
+            return some
+          end
+          []
         end
 
         def float_finance_house(player, charter, fh, price)

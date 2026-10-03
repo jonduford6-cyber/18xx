@@ -4,6 +4,7 @@ require_relative 'entities'
 require_relative 'map'
 require_relative 'meta'
 require_relative 'corporation'
+require_relative 'lombard'
 require_relative 'share_pool'
 require_relative 'round/operating'
 require_relative '../base'
@@ -19,6 +20,10 @@ module Engine
         CURRENCY_FORMAT_STR = '$%s'
 
         CORPORATION_CLASS = G1887::Corporation
+
+        # Lombard Street (a minor that holds shares) appears among the
+        # holders on every company card
+        MINORS_CAN_OWN_SHARES = true
 
         # The bank never runs out (section 12): it can always pay, and the
         # game never ends because of it
@@ -210,6 +215,34 @@ module Engine
           deal_corporate_seeds
           PREFLOATED.each { |id, price| prefloat(corporation_by_id(id), price) }
           mark_estancia
+          seed_lombard
+        end
+
+        # Company cards show holdings for Lombard Street too (a minor), not
+        # only for corporations
+        def corporation_show_shares?(_corporation)
+          true
+        end
+
+        def init_minors
+          [G1887::Lombard.new(sym: 'Lombard', name: 'Lombard Street', tokens: [],
+                              color: '#1f3a5f', text_color: '#ffffff')]
+        end
+
+        def lombard
+          @minors.first
+        end
+
+        # Section 3: Lombard Street starts with a 10% BAWR certificate from
+        # the bank pool and the 10% certificate of the seed Railway not dealt
+        # to a Construction Company
+        def seed_lombard
+          bawr = corporation_by_id('BAWR')
+          share_pool.buy_shares(lombard, share_pool.shares_of(bawr).find { |s| !s.president },
+                                exchange: :free, allow_president_change: false)
+          fourth = SEED_RAILWAYS.map { |id| corporation_by_id(id) }
+                     .find { |r| r.share_holders.keys.all? { |h| h == r } }
+          give_seed(lombard, fourth) if fourth
         end
 
         # Estancia Land Grant (4 players only) concerns J10: show its marker
@@ -323,7 +356,8 @@ module Engine
         def player_sort(entities)
           rank = ->(e) { [operating_order.index(e) || Float::INFINITY, e.name] }
           rail_first = lambda do |e|
-            next [1, *rank.call(e)] unless tier(e) == 2
+            next [1, 0, 0, e.name] if e.minor? # Lombard Street, after the player's own Railways
+            next [2, *rank.call(e)] unless tier(e) == 2
 
             [0, RAILWAY_ORDER.index(e.id) || RAILWAY_ORDER.size, 0, e.name]
           end
@@ -339,7 +373,7 @@ module Engine
           end
           ordered = @players.flat_map { |p| walk.call(p) }
           ordered.concat(entities.reject { |e| placed[e] }.sort_by(&rank))
-          ordered.group_by { |e| controller(e) || @players.first }
+          ordered.group_by { |e| (e.minor? ? e.owner : controller(e)) || @players.first }
         end
 
         # Show share quantities as percentages on cards, the spreadsheet and
@@ -566,12 +600,22 @@ module Engine
             return give_presidency(player, corporation_by_id(rail_id))
           end
 
+          return take_lombard(player, company) if company.id == 'LS'
+
           bags = BAGS_PRIVATES.include?(company.id)
           return give_pool_share(player, corporation_by_id('BAGS')) if bags
 
           return super unless (fh_id = CHARTERS[company.id])
 
           float_finance_house(player, company, corporation_by_id(fh_id), price)
+        end
+
+        # The Lombard Street private closes on purchase; its buyer becomes
+        # Lombard Street's owner and acts for it
+        def take_lombard(player, company)
+          company.close!
+          lombard.owner = player
+          @log << "#{company.name} closes; #{player.name} becomes the owner of #{lombard.full_name}"
         end
 
         # Privates that each come with one 10% BAGS certificate from the

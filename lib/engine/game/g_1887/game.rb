@@ -323,6 +323,23 @@ module Engine
                   "#{format_currency(bundle.price)}"
         end
 
+        # Game over by bankruptcy: say who (the page header, Info tab)
+        def game_ending_description
+          bankrupt = @players.find(&:bankrupt)
+          return super unless bankrupt
+
+          "#{bankrupt.name} is bankrupt: the game ended at once"
+        end
+
+        # A penalty: one space left (down a row at the left edge), as the
+        # pass penalty
+        def price_left(corporation)
+          old = corporation.share_price
+          @stock_market.move_left(corporation)
+          log_share_price(corporation, old)
+          recheck_operating_order
+        end
+
         # A stock event: down one row (stays at the bottom row)
         def price_down(corporation)
           return unless (old = corporation.share_price)

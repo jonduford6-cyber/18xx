@@ -23,6 +23,9 @@ module Engine
           # Baring & Robertson Credit's pull-back: a button in its owner's
           # turn that is not a buy
           def actions(entity)
+            # 10.6: a sale the control limit requires comes first
+            return %w[sell_shares] if entity == current_entity && entity.player? && !@game.forced_player_sales(entity).empty?
+
             acts = super
             return acts unless choice_available?(entity)
 
@@ -69,6 +72,7 @@ module Engine
 
             sources = [corporation, @game.share_pool]
             return false unless sources.include?(bundle.owner)
+            return false unless @game.control_ok?(entity, corporation, bundle.percent) # 10.6
 
             super(entity, bundle)
           end
@@ -100,6 +104,7 @@ module Engine
             corporation = bundle.corporation
             return false unless corporation.share_price
             return false unless [corporation, @game.share_pool].include?(bundle.owner)
+            return false unless @game.control_ok?(lombard, corporation, bundle.percent) # 10.6
 
             lombard.cash + lombard.owner.cash >= lombard_price(bundle)
           end
@@ -150,7 +155,15 @@ module Engine
             return [] if can_buy_for(entity).empty?
             return [] if lombard.cash + entity.cash < @game.stock_market.par_prices.map(&:price).min * 2
 
-            @game.lombard_startable_companies
+            @game.lombard_startable_companies.select { |c| @game.control_ok?(lombard, c, c.presidents_share.percent) } # 10.6
+          end
+
+          # 10.6: while a forced sale is due, only that sale
+          def can_sell?(entity, bundle)
+            forced = entity.player? ? @game.forced_player_sales(entity) : []
+            return forced.any? { |some| some.map(&:id).sort == bundle.shares.map(&:id).sort } unless forced.empty?
+
+            super
           end
 
           def ipo_type(_corporation)

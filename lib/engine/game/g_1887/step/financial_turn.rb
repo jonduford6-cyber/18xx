@@ -28,6 +28,7 @@ module Engine
 
           def actions(entity)
             return [] unless entity == current_entity
+            return %w[choose] unless @game.forced_corporation_sales(entity).empty?
             return %w[bid pass] if @start_chosen
             return %w[choose pass] if !buy_options(entity).empty? || !other_options(entity).empty?
 
@@ -63,9 +64,9 @@ module Engine
             entity = current_entity
             return [] unless @game.financial?(entity)
             return [] if entity.cash < START_MIN
-            return @game.startable_construction_companies if @game.finance_house?(entity)
 
-            @game.startable_railways
+            list = @game.finance_house?(entity) ? @game.startable_construction_companies : @game.startable_railways
+            list.select { |c| @game.control_ok?(entity, c, c.presidents_share.percent) } # 10.6
           end
 
           def ipo_type(_corporation)
@@ -151,6 +152,7 @@ module Engine
               { 'Treasury' => target, 'Market' => @game.share_pool }.filter_map do |source, holder|
                 share = holder.shares_of(target).find { |s| s.buyable && !s.president }
                 next unless share
+                next unless @game.control_ok?(entity, target, share.percent) # 10.6
 
                 {
                   choice: "#{source}:#{target.id}",
@@ -161,6 +163,13 @@ module Engine
                 }
               end
             end
+          end
+
+          # 10.6: a sale its control limit requires, before anything else
+          def sell_option(shares)
+            target = shares.first.corporation
+            ["sell:#{target.id}:#{shares.size}",
+             "Sell #{shares.sum(&:percent)}% #{target.name} (#{@game.format_currency(target.share_price.price * shares.size)})"]
           end
 
           # Sell (before the action), Redeem and Reissue buttons
@@ -200,6 +209,9 @@ module Engine
 
           def choices
             entity = current_entity
+            forced = @game.forced_corporation_sales(entity)
+            return forced.to_h { |some| sell_option(some) } unless forced.empty?
+
             list = other_options(entity).select { |o| o[:choice].start_with?('sell:') }.to_h { |o| [o[:choice], o[:label]] }
             list.merge!(buy_options(entity).to_h { |o| [o[:choice], o[:label]] })
             unless available.empty?
@@ -212,7 +224,7 @@ module Engine
           # older headings otherwise
           def choice_name
             entity = current_entity
-            return entity.name unless other_options(entity).empty?
+            return entity.name if !other_options(entity).empty? || !@game.forced_corporation_sales(entity).empty?
 
             available.empty? ? 'Buy' : 'Buy or Start'
           end
@@ -226,6 +238,11 @@ module Engine
           def process_choose(action)
             entity = action.entity
             kind, arg, count = action.choice.split(':')
+            forced = @game.forced_corporation_sales(entity)
+            if !forced.empty? && forced.none? { |some| sell_option(some).first == action.choice }
+              raise GameError, "#{entity.name} must first sell down to 60% control"
+            end
+
             if kind == 'sell'
               shares = @game.bundle_for(entity, arg, count)
               raise GameError, "#{entity.name} cannot sell #{arg} now" unless shares

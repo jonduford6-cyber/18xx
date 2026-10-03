@@ -3,6 +3,7 @@
 require_relative 'entities'
 require_relative 'map'
 require_relative 'meta'
+require_relative 'corporation'
 require_relative 'share_pool'
 require_relative 'round/operating'
 require_relative '../base'
@@ -16,6 +17,8 @@ module Engine
         include Map
 
         CURRENCY_FORMAT_STR = '$%s'
+
+        CORPORATION_CLASS = G1887::Corporation
 
         # Placeholder: 1887.json does not give a bank size.
         BANK_CASH = 12_000

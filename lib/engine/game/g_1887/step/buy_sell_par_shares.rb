@@ -56,10 +56,13 @@ module Engine
           def buy_shares(entity, shares, **kwargs)
             super(entity, shares, **kwargs, allow_president_change: false)
             @game.check_presidency(shares.corporation)
+            @game.founding_float_check(shares.corporation)
           end
 
           def can_ipo_any?(entity)
-            !lombard_startable(entity).empty?
+            return false if bought?
+
+            !lombard_startable(entity).empty? || !@game.player_startable(entity).empty?
           end
 
           def can_buy?(entity, bundle, borrow_from: nil)
@@ -158,8 +161,23 @@ module Engine
             @game.lombard_startable_companies.select { |c| @game.control_ok?(lombard, c, c.presidents_share.percent) } # 10.6
           end
 
+          # A player starts a company as their buy for the turn (3.3)
+          def process_player_start(action)
+            entity = action.entity
+            corporation = action.corporation
+            raise GameError, "#{entity.name} has already bought this turn" if bought?
+            unless get_par_prices(entity, corporation).include?(action.share_price)
+              raise GameError, "#{entity.name} cannot start #{corporation.name} at that par"
+            end
+
+            @game.player_start(entity, corporation, action.share_price)
+            track_action(action, corporation)
+          end
+
           # 10.6: while a forced sale is due, only that sale
           def can_sell?(entity, bundle)
+            return false if bundle.corporation.founding # nobody sells before it floats
+
             forced = entity.player? ? @game.forced_player_sales(entity) : []
             return forced.any? { |some| some.map(&:id).sort == bundle.shares.map(&:id).sort } unless forced.empty?
 
@@ -170,8 +188,11 @@ module Engine
             :par
           end
 
-          def get_par_prices(_entity, _corporation)
-            []
+          # Par prices for a player starting a company (3.3): par x 2 to pay
+          def get_par_prices(entity, corporation)
+            return [] if bought? || !@game.player_startable(entity).include?(corporation)
+
+            @game.stock_market.par_prices.select { |p| p.price * 2 <= entity.cash }
           end
 
           def get_par_prices_with_help(entity, _corporation, extra_cash: 0)
@@ -186,6 +207,9 @@ module Engine
             lombard = @game.lombard
             entity = action.entity
             corporation = action.corporation
+            return process_player_start(action) if action.purchase_for != lombard && corporation.id != lombard&.id &&
+                                                   @game.player_startable(entity).include?(corporation)
+
             if action.purchase_for != lombard || !lombard_startable(entity).include?(corporation)
               raise GameError, "#{corporation.name} cannot be started now"
             end

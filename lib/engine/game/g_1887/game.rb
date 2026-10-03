@@ -682,6 +682,8 @@ module Engine
         end
 
         def can_par?(corporation, entity)
+          return true if player_startable(entity).include?(corporation)
+
           lombard&.owner == entity && lombard_startable_companies.include?(corporation)
         end
 
@@ -713,6 +715,56 @@ module Engine
 
         # Started without the bank subsidy
         NO_SUBSIDY = %w[ER].freeze
+
+        # 3.3 / 13.3: companies a player may start in a Stock Round as their
+        # buy (Entre Rios from phase 4, while unstarted); the mechanism is
+        # meant to be reused for restarting a retired Railway
+        PLAYER_STARTABLE = %w[ER].freeze
+        FOUNDING_FLOAT_POOL = 40 # floats when 60% has been sold
+        FOUNDING_CAPITAL = 10 # the bank pays 10 x par at the float
+
+        def player_startable(player)
+          return [] if !player.player? || !@phase.available?('4')
+
+          min = stock_market.par_prices.map(&:price).min
+          PLAYER_STARTABLE.map { |id| corporation_by_id(id) }.select do |c|
+            c.presidents_share.owner == c && player.cash >= min * 2 && control_ok?(player, c, c.presidents_share.percent)
+          end
+        end
+
+        # The player pays par x 2 to the bank for the president's
+        # certificate; the other certificates go to the bank pool, sold at
+        # par until the company floats; no market price until then
+        def player_start(player, company, share_price)
+          price = share_price.price * 2
+          company.founding = true
+          company.par_price = share_price
+          company.share_price = share_price # the founding price; the marker is not on the market
+          company.ipoed = true
+          @log << "#{player.name} starts #{company.name} at par #{format_currency(share_price.price)}, paying " \
+                  "#{format_currency(price)} to the bank for the #{company.presidents_share.percent}% president's certificate"
+          share_pool.buy_shares(player, company.presidents_share, exchange: :free, allow_president_change: false, silent: true)
+          player.spend(price, @bank)
+          company.owner = player
+          rest = company.shares_of(company).reject(&:president)
+          share_pool.transfer_shares(ShareBundle.new(rest), share_pool, allow_president_change: false)
+          @log << "#{ShareBundle.new(rest).percent}% of #{company.name} is placed in the bank pool, at " \
+                  "#{format_currency(share_price.price)} each until it floats"
+        end
+
+        # The float at 60% sold: 10 x par from the bank, the home station, the
+        # marker at the start of the next Operating Round
+        def founding_float_check(company)
+          return if !company.founding || share_pool.percent_of(company) > FOUNDING_FLOAT_POOL
+
+          company.founding = false
+          capital = company.par_price.price * FOUNDING_CAPITAL
+          @bank.spend(capital, company)
+          @log << "#{company.name} floats (60% sold); the bank pays #{format_currency(capital)} into its treasury"
+          place_home_token(company)
+          (@pending_markers ||= []) << company
+          @log << "#{company.name}'s price marker waits beside the market until the next Operating Round"
+        end
 
         # 10.5 / 11.3.3: a Finance House starts a Construction Company, a
         # Construction Company starts a Railway. The whole amount goes into
@@ -877,7 +929,7 @@ module Engine
         # the pool limit. Each bundle is a list of certificates.
         def legal_bundles(seller)
           seller.shares.group_by(&:corporation).flat_map do |corporation, shares|
-            next [] if corporation == seller || !corporation.share_price
+            next [] if corporation == seller || !corporation.share_price || corporation.founding
 
             ordinary = shares.select { |sh| sh.buyable && !sh.president }.sort_by(&:id)
             (1..ordinary.size).map { |n| ordinary.first(n) }

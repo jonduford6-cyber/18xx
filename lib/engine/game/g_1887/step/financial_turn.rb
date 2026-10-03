@@ -143,7 +143,7 @@ module Engine
             return [] unless @game.financial?(entity)
 
             targets = @game.corporations.select do |c|
-              c.share_price && @game.tier(c) > @game.tier(entity)
+              c.share_price && !c.founding && @game.tier(c) > @game.tier(entity)
             end
             targets.sort_by { |c| [@game.tier(c), c.name] }.flat_map do |target|
               price = target.share_price.price

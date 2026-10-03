@@ -278,6 +278,58 @@ module Engine
           lombard.add_ability(@confidence_ability) unless lombard.all_abilities.include?(@confidence_ability)
         end
 
+        # 50% of a company's certificates at most in the bank pool, for every
+        # sale, Issue and Reissue; no limit with the optional rule
+        def market_share_limit(corporation = nil)
+          optional_rules.include?(:no_bank_pool_limit) ? 100 : super
+        end
+
+        # 11.3.5 / 11.3.1: one ordinary certificate a company may move from
+        # its own treasury to the bank pool (never the president's, never a
+        # held-back one), if the pool limit allows
+        def issuable_share(corporation)
+          return unless corporation.share_price
+
+          share = corporation.shares_of(corporation).find { |s| s.buyable && !s.president }
+          share if share && share_pool.fit_in_bank?(share.to_bundle)
+        end
+
+        # One of its own certificates a company may buy back from the bank
+        # pool at the market price (BAGS and BAWR never redeem)
+        def redeemable_share(corporation)
+          return if PREFLOATED.key?(corporation.id) || !corporation.share_price
+
+          share = share_pool.shares_of(corporation).find { |s| !s.president }
+          share if share && corporation.cash >= corporation.share_price.price * share.num_shares
+        end
+
+        # Issue / Reissue: certificates from the company's treasury to the
+        # bank pool, all at the current market price; then down one row per
+        # certificate
+        def issue_shares(corporation, shares)
+          bundle = ShareBundle.new(shares)
+          bundle.share_price = corporation.share_price.price
+          share_pool.sell_shares(bundle, allow_president_change: false)
+          shares.size.times { price_down(corporation) }
+        end
+
+        def redeem_share(corporation, share)
+          bundle = share.to_bundle
+          bundle.share_price = corporation.share_price.price
+          share_pool.buy_shares(corporation, bundle, allow_president_change: false, silent: true)
+          @log << "#{corporation.name} redeems a #{bundle.percent}% share from the market for " \
+                  "#{format_currency(bundle.price)}"
+        end
+
+        # A stock event: down one row (stays at the bottom row)
+        def price_down(corporation)
+          return unless (old = corporation.share_price)
+
+          @stock_market.move_down(corporation)
+          log_share_price(corporation, old)
+          recheck_operating_order
+        end
+
         # Optional rule: only two 6-trains
         def num_trains(train)
           return 2 if train[:name] == '6' && optional_rules.include?(:two_six_trains)
@@ -679,6 +731,7 @@ module Engine
             G1887::Step::Exchange,
             G1887::Step::SpecialTrack,
             G1887::Step::BuyCompany,
+            G1887::Step::IssueRedeem,
             G1887::Step::Track,
             G1887::Step::Token,
             G1887::Step::Route,

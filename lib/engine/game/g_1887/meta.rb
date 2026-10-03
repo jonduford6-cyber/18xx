@@ -21,6 +21,11 @@ module Engine
             short_name: 'Two 6-trains',
             desc: 'Only two 6-trains are available instead of three.',
           },
+          {
+            sym: :no_bank_pool_limit,
+            short_name: 'No bank pool limit',
+            desc: 'Sales, Issues and Reissues may put any share of a company into the bank pool, not only up to 50%.',
+          },
         ].freeze
       end
     end

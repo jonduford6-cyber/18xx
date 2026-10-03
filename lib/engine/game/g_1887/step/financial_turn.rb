@@ -168,12 +168,14 @@ module Engine
             return [] unless @game.financial?(entity)
 
             fmt = ->(v) { @game.format_currency(v) }
-            list = @game.sellable_shares(entity).map do |share|
+            list = @game.legal_bundles(entity).map do |some|
+              share = some.first
               target = share.corporation
               {
-                choice: "sell:#{target.id}",
+                choice: "sell:#{target.id}:#{some.size}",
                 share: share,
-                label: "Sell #{share.percent}% #{target.name} Share (#{fmt[target.share_price.price]})",
+                shares: some,
+                label: "Sell #{some.sum(&:percent)}% #{target.name} (#{fmt[target.share_price.price * some.size]})",
               }
             end
             if (share = @game.redeemable_share(entity))
@@ -189,7 +191,7 @@ module Engine
               list << {
                 choice: "reissue:#{n}",
                 share: some.first,
-                label: "Reissue #{some.sum(&:percent)}% Treasury Shares " \
+                label: "Issue #{some.sum(&:percent)}% Treasury #{n == 1 ? 'Share' : 'Shares'} " \
                        "(#{fmt[entity.share_price.price * n]})",
               }
             end
@@ -206,18 +208,13 @@ module Engine
             list.merge(other_options(entity).reject { |o| o[:choice].start_with?('sell:') }.to_h { |o| [o[:choice], o[:label]] })
           end
 
+          # The company's name once Sell, Redeem or Reissue is offered; the
+          # older headings otherwise
           def choice_name
             entity = current_entity
-            others = other_options(entity).map { |o| o[:choice].split(':').first }
-            kinds = []
-            kinds << 'Sell first' if others.include?('sell')
-            kinds << 'Buy' unless buy_options(entity).empty?
-            kinds << 'Start' unless available.empty?
-            kinds << 'Redeem' if others.include?('redeem')
-            kinds << 'Reissue' if others.include?('reissue')
-            return 'Buy' if kinds.empty?
+            return entity.name unless other_options(entity).empty?
 
-            kinds.size == 1 ? kinds.first : "#{kinds[0...-1].join(', ')} or #{kinds.last}"
+            available.empty? ? 'Buy' : 'Buy or Start'
           end
 
           # Cards of the corporations offered, below the buyer's own card
@@ -228,20 +225,24 @@ module Engine
 
           def process_choose(action)
             entity = action.entity
-            kind, arg = action.choice.split(':')
-            if %w[sell redeem reissue].include?(kind)
+            kind, arg, count = action.choice.split(':')
+            if kind == 'sell'
+              shares = @game.bundle_for(entity, arg, count)
+              raise GameError, "#{entity.name} cannot sell #{arg} now" unless shares
+
+              @game.sell_bundle(shares)
+              @sold = true
+              return
+            end
+            if %w[redeem reissue].include?(kind)
               option = other_options(entity).find { |o| o[:choice] == action.choice }
               raise GameError, "#{entity.name} cannot #{kind} now" unless option
 
               case kind
-              when 'sell'
-                @game.sell_share(option[:share])
-                @sold = true
-                return
               when 'redeem'
                 @game.redeem_share(entity, option[:share])
               when 'reissue'
-                @game.issue_shares(entity, @game.reissuable_shares(entity).first(arg.to_i), verb: 'reissues')
+                @game.issue_shares(entity, @game.reissuable_shares(entity).first(arg.to_i))
               end
               return pass!
             end

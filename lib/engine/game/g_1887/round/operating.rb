@@ -30,7 +30,15 @@ module Engine
             super
           end
 
+          # 11.8: as soon as a Railway that must buy a train cannot pay, the
+          # automatic part of the emergency runs (sweeps, climbs)
           def after_process(action)
+            turn_after_process(action)
+            step = active_step
+            step.settle!(step.current_entity) if !@game.finished && step.respond_to?(:settle!)
+          end
+
+          def turn_after_process(action)
             return if action.type == 'message'
 
             @current_operator_acted = true if action.entity.corporation == @current_operator

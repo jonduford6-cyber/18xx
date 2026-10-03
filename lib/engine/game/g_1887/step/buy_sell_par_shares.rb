@@ -47,6 +47,14 @@ module Engine
             @game.pull_back_confidence!(action.entity)
           end
 
+          # Presidency after a purchase follows 1887's own rule (players,
+          # Lombard Street and corporations all count; a tie keeps the
+          # president). The shared check counts players only.
+          def buy_shares(entity, shares, **kwargs)
+            super(entity, shares, **kwargs, allow_president_change: false)
+            @game.check_presidency(shares.corporation)
+          end
+
           def can_ipo_any?(entity)
             !lombard_startable(entity).empty?
           end

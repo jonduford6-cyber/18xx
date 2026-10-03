@@ -328,7 +328,7 @@ module Engine
           bankrupt = @players.find(&:bankrupt)
           return super unless bankrupt
 
-          "#{bankrupt.name} is bankrupt: the game ended at once"
+          "#{bankrupt.name} is bankrupt"
         end
 
         # A penalty: one space left (down a row at the left edge), as the
@@ -867,29 +867,52 @@ module Engine
           held[top] > held[pres] ? top : pres
         end
 
-        # 11.3: certificates of other companies a Finance House or
-        # Construction Company may sell, one per company: never a
-        # president's or held-back certificate, only with a market price,
-        # within the pool limit
-        def sellable_shares(entity)
-          entity.shares.group_by(&:corporation).filter_map do |corporation, shares|
-            next if corporation == entity || !corporation.share_price
+        # 10.2, 11.3: the bundles a player or corporation may sell, per
+        # company: 1, 2, ... of its ordinary certificates (never a
+        # president's or held-back one), only with a market price, within
+        # the pool limit. Each bundle is a list of certificates.
+        def legal_bundles(seller)
+          seller.shares.group_by(&:corporation).flat_map do |corporation, shares|
+            next [] if corporation == seller || !corporation.share_price
 
-            share = shares.find { |sh| sh.buyable && !sh.president }
-            share if share && share_pool.fit_in_bank?(share.to_bundle)
+            ordinary = shares.select { |sh| sh.buyable && !sh.president }.sort_by(&:id)
+            (1..ordinary.size).map { |n| ordinary.first(n) }
+                              .select { |some| share_pool.fit_in_bank?(ShareBundle.new(some)) }
           end
         end
 
-        # Sells one certificate to the bank pool at the market price; the
-        # company's presidency may change (the existing swap), and its price
-        # moves down one row
-        def sell_share(share)
-          corporation = share.corporation
-          bundle = share.to_bundle
+        # Sells certificates of one company together to the bank pool at the
+        # current price per certificate; a presidency swap once, after the
+        # whole bundle; then the price drops one row per certificate
+        def sell_bundle(shares)
+          corporation = shares.first.corporation
+          bundle = ShareBundle.new(shares)
           bundle.share_price = corporation.share_price.price
           share_pool.sell_shares(bundle, allow_president_change: false)
           check_presidency(corporation)
-          price_down(corporation)
+          shares.size.times { price_down(corporation) }
+        end
+
+        # The bundle of `count` certificates of a company that a button
+        # "sell:<company>:<count>" stands for
+        def bundle_for(seller, corporation_id, count)
+          corporation = corporation_by_id(corporation_id)
+          legal_bundles(seller).find { |some| some.first.corporation == corporation && some.size == count.to_i }
+        end
+
+        # 11.9: the Bankruptcy button (standard screen) appears only when the
+        # player at the top of an emergency cannot cover it (1887's Buy
+        # Trains step decides)
+        def can_go_bankrupt?(player, corporation)
+          step = @round.steps.find { |s| s.is_a?(G1887::Step::BuyTrain) }
+          step&.active? ? step.player_cannot_cover?(player, corporation) : false
+        end
+
+        # The standard emergency Issue panel's bundles (1887's Buy Trains
+        # step decides)
+        def emergency_issuable_bundles(corporation)
+          step = @round.steps.find { |s| s.is_a?(G1887::Step::BuyTrain) }
+          step&.active? ? step.issuable_shares(corporation) : []
         end
 
         # 11.3.1: up to how many certificates a company may reissue from its

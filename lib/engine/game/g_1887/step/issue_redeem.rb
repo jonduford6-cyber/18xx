@@ -9,17 +9,17 @@ module Engine
       module Step
         # 11.3.5: at the start of a Railway's turn, before track, its
         # president may Issue one certificate from its treasury or Redeem one
-        # from the bank pool (not both, once), or skip. Buttons, as for Buy.
+        # from the bank pool (not both, once), or skip. One row of buttons
+        # under the Railway's name.
         class IssueRedeem < Engine::Step::Base
           include RailwayOnly
 
-          ACTIONS = %w[choose pass].freeze
-
+          # Skip is a button in the row
           def actions(entity)
             return [] unless entity == current_entity
-            return [] if choices.empty?
+            return [] if offers.empty?
 
-            ACTIONS
+            %w[choose]
           end
 
           def description
@@ -30,14 +30,18 @@ module Engine
           def log_skip(_entity); end
 
           def pass_description
-            'Skip (Issue/Redeem)'
+            'Skip'
           end
 
           def choice_name
-            "#{current_entity.name}: Issue or Redeem one certificate (once, before track)"
+            current_entity.name
           end
 
           def choices
+            offers.merge('skip' => 'Skip')
+          end
+
+          def offers
             corporation = current_entity
             list = {}
             if (share = @game.issuable_share(corporation))
@@ -52,6 +56,8 @@ module Engine
           def process_choose(action)
             corporation = action.entity
             case action.choice
+            when 'skip'
+              log_pass(corporation)
             when 'issue'
               share = @game.issuable_share(corporation)
               raise GameError, "#{corporation.name} cannot issue a certificate" unless share

@@ -7,46 +7,50 @@ module Engine
   module Game
     module G1887
       module Step
-        # Buying trains (11.8, 11.9, 12). A Railway with a route and no train
-        # must buy one. If it cannot afford the cheapest train in the depot,
-        # the money is raised one tier at a time, with buttons ('choose'):
-        #  1. the Railway issues certificates from its own treasury;
-        #  2. a corporation president gives what it can (a gift), raising
-        #     cash by selling certificates it holds or by Reissue; if it
-        #     still cannot cover the shortfall, its price moves left and the
-        #     call climbs to its own president;
-        #  3. the player at the top pays from personal cash, then sells; if
-        #     that is still not enough, the player is bankrupt and the game
-        #     ends.
-        # The Railway's presidency never changes during this. Then the
-        # purchase completes as normal. Nobody contributes in the engine's
-        # own way (president_may_contribute? is off).
+        # Buying trains (11.8, 11.9, 12), in the site's standard format. A
+        # Railway with a route and no train must buy the cheapest train in
+        # the depot. If it cannot pay, the money is raised one tier at a time
+        # (as 1841 does for chains of corporations):
+        #  1. the Railway issues as many certificates as needed, or all it
+        #     can (the standard emergency Issue panel);
+        #  2. a corporation president's treasury is swept into the Railway
+        #     (a gift); it then issues, or sells certificates it holds, in
+        #     the same panel, each sale swept in at once; when it has nothing
+        #     left, its price moves one space left and the call climbs to its
+        #     own president (settle!, automatic, with log lines);
+        #  3. Lombard Street's treasury is swept in; the player at the top
+        #     sells with the standard sell buttons and contributes the rest
+        #     when buying; a player who cannot cover declares bankruptcy
+        #     (the standard button; see Step::Bankrupt).
+        # Nobody sells more than is needed; no sale changes the Railway's
+        # presidency.
         class BuyTrain < Engine::Step::BuyTrain
           include RailwayOnly
 
           def setup
             super
-            @emergency_issued = false
+            @issued = false
             @payer = nil
           end
 
           def actions(entity)
-            return [] unless entity == current_entity
-            return %w[choose] if emergency?(entity)
+            railway = current_entity
+            if railway && emergency?(railway)
+              return issuable_shares(railway).empty? ? %w[buy_train] : %w[buy_train sell_shares] if entity == railway
+              return %w[sell_shares] if entity == top_player(railway) && player_stage?(railway)
+
+              return []
+            end
+            return [] unless entity == railway
             return %w[buy_train] if must_buy_train?(entity)
 
             super
           end
 
+          # Contributions are made by settle! and process_buy_train, never by
+          # the engine's own path
           def president_may_contribute?(_entity, _shell = nil)
             false
-          end
-
-          def process_buy_train(action)
-            entity = action.entity
-            raise GameError, "#{entity.name} has only #{@game.format_currency(entity.cash)}" if action.price > entity.cash
-
-            super
           end
 
           # The Railway must buy a train and cannot afford the cheapest one
@@ -58,179 +62,232 @@ module Engine
             @depot.min_depot_price - entity.cash
           end
 
-          # Who pays now: the Railway (issuing), a corporation, or the player
-          # at the top (with Lombard Street, its owner)
-          def payer(entity)
-            return entity if !@emergency_issued && !emergency_issue_shares(entity).empty?
+          def buyable_trains(entity)
+            return [@depot.min_depot_train] if emergency?(entity)
 
-            @payer || entity.owner
+            super
           end
 
-          def top_player(payer)
-            payer.minor? ? payer.owner : payer
+          # The tier the call has reached: the Railway's president, or higher
+          def payer(railway)
+            @payer || railway.owner
           end
 
-          # Certificates the Railway issues: as many as cover the shortfall,
-          # or all it can
-          def emergency_issue_shares(entity)
-            shares = @game.reissuable_shares(entity)
-            price = entity.share_price&.price.to_i
+          # The player at the top: the payer if a player, Lombard Street's
+          # owner, or the player above the corporations
+          def top_player(railway)
+            tier = payer(railway)
+            tier = tier.owner while tier&.corporation?
+            tier&.minor? ? tier.owner : tier
+          end
+
+          # Standard screen hooks: whose cash and sell buttons are shown
+          def corp_owner(railway)
+            top_player(railway)
+          end
+
+          def real_owner(railway)
+            top_player(railway)
+          end
+
+          def railway_issue_pending?(railway)
+            !@issued && !railway_issue_bundle(railway).empty?
+          end
+
+          def player_stage?(railway)
+            emergency?(railway) && !railway_issue_pending?(railway) && !payer(railway).corporation?
+          end
+
+          # The Railway's emergency issue: as many certificates as cover the
+          # shortfall, or all it may (one bundle, sold together)
+          def railway_issue_bundle(railway)
+            shares = @game.reissuable_shares(railway)
+            price = railway.share_price&.price.to_i
             return [] if shares.empty? || price.zero?
 
-            needed = (shortfall(entity) + price - 1).div(price)
-            shares.first(needed)
+            shares.first((shortfall(railway) + price - 1).div(price))
           end
 
-          # Sales a payer may make: never the Railway's presidency changed
-          def emergency_sellable(railway, seller)
-            shares = seller.minor? ? [] : sellable_for(seller)
-            shares.select do |share|
-              share.corporation != railway ||
-                @game.president_after(railway, seller => -share.percent) == railway.owner
+          # The standard emergency Issue panel: the Railway's own issue, or
+          # the bundles of the corporation the call has reached
+          def issuable_shares(railway)
+            return [] if !railway.corporation? || !emergency?(railway)
+            return [bundle_of(railway_issue_bundle(railway))] if railway_issue_pending?(railway)
+
+            tier = payer(railway)
+            return [] unless tier.corporation?
+
+            corporation_bundles(railway, tier).map { |some| bundle_of(some) }
+          end
+
+          def bundle_of(shares)
+            bundle = ShareBundle.new(shares)
+            bundle.share_price = shares.first.corporation.share_price.price
+            bundle
+          end
+
+          # A corporation's bundles: its own certificates (issue) and those it
+          # holds in other companies, never more than needed, never one that
+          # changes the Railway's presidency
+          def corporation_bundles(railway, corporation)
+            need = shortfall(railway) - corporation.cash
+            return [] unless need.positive?
+
+            own = @game.reissuable_shares(corporation)
+            issues = (1..own.size).map { |n| own.first(n) }
+            sales = @game.legal_bundles(corporation).reject { |some| changes_presidency?(railway, corporation, some) }
+            (issues + sales).select { |some| no_more_than_needed?(some, need) }
+          end
+
+          def changes_presidency?(railway, seller, shares)
+            shares.first.corporation == railway &&
+              @game.president_after(railway, seller => -shares.sum(&:percent)) != railway.owner
+          end
+
+          # The standard rule: a bundle is allowed only if one certificate
+          # fewer would not be enough
+          def no_more_than_needed?(shares, need)
+            price = shares.first.corporation.share_price.price
+            price * (shares.size - 1) < need
+          end
+
+          # The player's bundles (standard sell buttons)
+          def player_bundles(railway)
+            player = top_player(railway)
+            need = shortfall(railway) - player.cash
+            return [] unless need.positive?
+
+            @game.legal_bundles(player)
+                 .reject { |some| changes_presidency?(railway, player, some) }
+                 .select { |some| no_more_than_needed?(some, need) }
+          end
+
+          def can_sell?(entity, bundle)
+            railway = current_entity
+            return false if !railway || !emergency?(railway)
+
+            wanted = bundle.shares.map(&:id).sort
+            if entity == railway
+              issuable_shares(railway).any? { |b| b.shares.map(&:id).sort == wanted }
+            else
+              entity == top_player(railway) && player_stage?(railway) && bundle.owner == entity &&
+                player_bundles(railway).any? { |some| some.map(&:id).sort == wanted }
             end
           end
 
-          def sellable_for(seller)
-            return @game.sellable_shares(seller) if seller.corporation?
-
-            seller.shares.group_by(&:corporation).filter_map do |corporation, shares|
-              next unless corporation.share_price
-
-              share = shares.find { |sh| sh.buyable && !sh.president }
-              share if share && @game.share_pool.fit_in_bank?(share.to_bundle)
-            end
+          # Off, so that the standard screen does not suggest buying a train
+          # from another company (1887 allows only the cheapest depot train);
+          # the issue still comes first, as the panel and actions enforce
+          def must_issue_before_ebuy?(_railway)
+            false
           end
 
-          def choice_name
-            entity = current_entity
-            train = @depot.min_depot_train
-            text = "#{entity.name} must buy a #{train.name} train (#{@game.format_currency(train.price)}) and has " \
-                   "#{@game.format_currency(entity.cash)}: short #{@game.format_currency(shortfall(entity))}"
-            pay = payer(entity)
-            return "#{text}. First #{entity.name} issues" if pay == entity
-
-            who = pay.minor? ? "#{pay.full_name} (#{pay.owner.name})" : pay.name
-            cash = pay.minor? ? pay.cash + pay.owner.cash : pay.cash
-            "#{text}. Now #{who}, with #{@game.format_currency(cash)}"
+          def ebuy_president_can_contribute?(railway)
+            player_stage?(railway)
           end
 
-          def choices
-            entity = current_entity
-            short = shortfall(entity)
-            fmt = ->(v) { @game.format_currency(v) }
-            pay = payer(entity)
-            if pay == entity
-              shares = emergency_issue_shares(entity)
-              total = entity.share_price.price * shares.size
-              return { 'issue' => "#{entity.name} issues #{shares.sum(&:percent)}% Treasury Shares (#{fmt[total]})" }
+          def issue_text(railway)
+            tier = railway_issue_pending?(railway) ? railway : payer(railway)
+            tier == railway ? 'Emergency Issue' : "#{tier.name} Emergency Issue or Sell (for #{railway.name})"
+          end
+
+          def issue_verb(railway)
+            railway_issue_pending?(railway) ? 'issue' : 'issue or sell'
+          end
+
+          def issuing_corporation(railway)
+            railway_issue_pending?(railway) || !payer(railway).corporation? ? railway : payer(railway)
+          end
+
+          def issue_corp_name(bundle)
+            bundle.corporation == bundle.owner ? 'Treasury ' : "#{bundle.corporation.name} "
+          end
+
+          def process_sell_shares(action)
+            railway = current_entity
+            bundle = action.bundle
+            unless can_sell?(action.entity, bundle)
+              raise GameError, "Cannot sell #{bundle.percent}% of #{bundle.corporation.name} now"
             end
 
-            if pay.corporation?
-              return { 'give' => "#{pay.name} gives #{fmt[short]} to #{entity.name}" } if pay.cash >= short
+            owner = bundle.owner
+            if owner == bundle.corporation
+              @game.issue_shares(owner, bundle.shares)
+              @issued = true if owner == railway
+            else
+              @game.sell_bundle(bundle.shares)
+            end
+            settle!(railway)
+          end
 
-              list = emergency_sellable(entity, pay).to_h do |share|
-                ["sell:#{share.id}", "#{pay.name} sells #{share.percent}% #{share.corporation.name} Share " \
-                                     "(#{fmt[share.corporation.share_price.price]})"]
+          # The automatic part, run after every action of the emergency: the
+          # corporations' cash is swept into the Railway, and the call climbs
+          # past each corporation that has nothing left to give or sell (its
+          # price one space left). Lombard Street's treasury is swept in when
+          # the call reaches it.
+          def settle!(railway)
+            return if !railway&.corporation? || !emergency?(railway)
+            return if railway_issue_pending?(railway)
+
+            loop do
+              short = shortfall(railway)
+              tier = payer(railway)
+              break if short <= 0 || tier.nil?
+
+              if tier.corporation?
+                sweep(tier, railway, short)
+                break if shortfall(railway) <= 0 || !corporation_bundles(railway, tier).empty?
+
+                up = tier.owner
+                @log << "#{tier.name} cannot cover the remaining #{@game.format_currency(shortfall(railway))}; " \
+                        "the call goes to #{up.minor? ? up.full_name : up.name}"
+                @game.price_left(tier)
+                @payer = up
+              else
+                sweep(tier, railway, short) if tier.minor?
+                break
               end
-              shares = @game.reissuable_shares(pay)
-              shares.size.downto(1) do |n|
-                list["reissue:#{n}"] = "#{pay.name} reissues #{shares.first(n).sum(&:percent)}% Treasury Shares " \
-                                       "(#{fmt[pay.share_price.price * n]})"
-              end
-              return list unless list.empty?
-
-              up = pay.owner.minor? ? pay.owner.full_name : pay.owner.name
-              gives = pay.cash.positive? ? "gives its #{fmt[pay.cash]}" : 'has nothing to give'
-              return {
-                'climb' => "#{pay.name} #{gives}; the remaining #{fmt[short - pay.cash]} goes to #{up} " \
-                           "(#{pay.name}'s price moves left)",
-              }
             end
-
-            player = top_player(pay)
-            cash = (pay.minor? ? pay.cash : 0) + player.cash
-            return { 'pay' => pay_label(pay, player, short) } if cash >= short
-
-            list = emergency_sellable(entity, player).to_h do |share|
-              ["sell:#{share.id}", "#{player.name} sells #{share.percent}% #{share.corporation.name} Share " \
-                                   "(#{fmt[share.corporation.share_price.price]})"]
-            end
-            return list unless list.empty?
-
-            { 'bankrupt' => "#{player.name} is bankrupt (cannot cover the remaining #{fmt[short - cash]})" }
           end
 
-          def pay_label(pay, player, short)
-            fmt = ->(v) { @game.format_currency(v) }
-            from_lombard = pay.minor? ? [pay.cash, short].min : 0
-            from_player = short - from_lombard
-            parts = []
-            parts << "#{pay.full_name} pays #{fmt[from_lombard]}" if from_lombard.positive?
-            parts << "#{player.name} pays #{fmt[from_player]}" if from_player.positive?
-            "#{parts.join(' and ')} to #{current_entity.name}"
+          def sweep(from, railway, short)
+            amount = [from.cash, short].min
+            return unless amount.positive?
+
+            from.spend(amount, railway)
+            @log << "Sweeping #{@game.format_currency(amount)} from #{from.minor? ? from.full_name : from.name} " \
+                    "to #{railway.name}"
           end
 
-          def process_choose(action)
-            entity = action.entity
-            raise GameError, "#{entity.name} is not short of money for a train" unless emergency?(entity)
+          # The player at the top cannot cover what is still missing, even
+          # after selling everything they may
+          def player_cannot_cover?(player, railway)
+            return false if !railway&.corporation? || !player_stage?(railway) || player != top_player(railway)
 
-            choice = action.choice
-            raise GameError, "Not a choice now: #{choice}" unless choices.key?(choice)
+            value = @game.legal_bundles(player)
+                         .reject { |some| changes_presidency?(railway, player, some) }
+                         .group_by { |some| some.first.corporation }
+                         .sum { |corporation, bundles| corporation.share_price.price * bundles.map(&:size).max }
+            player.cash + value < shortfall(railway)
+          end
 
-            short = shortfall(entity)
-            pay = payer(entity)
-            kind, arg = choice.split(':')
-            case kind
-            when 'issue'
-              @game.issue_shares(entity, emergency_issue_shares(entity))
-              @emergency_issued = true
-            when 'give'
-              pay.spend(short, entity)
-              @log << "#{pay.name} gives #{@game.format_currency(short)} to #{entity.name}"
-            when 'sell'
-              share = (pay.corporation? ? pay : top_player(pay)).shares.find { |s| s.id == arg }
-              @game.sell_share(share)
-            when 'reissue'
-              @game.issue_shares(pay, @game.reissuable_shares(pay).first(arg.to_i), verb: 'reissues')
-            when 'climb'
-              climb(entity, pay, short)
-            when 'pay'
-              pay_up(entity, pay, short)
-            when 'bankrupt'
-              bankrupt(entity, top_player(pay), short - (pay.minor? ? pay.cash : 0) - top_player(pay).cash)
+          def process_buy_train(action)
+            railway = action.entity
+            settle!(railway)
+            if emergency?(railway)
+              raise GameError, "#{railway.name} must first issue" unless player_stage?(railway)
+              raise GameError, "#{railway.name} must buy the cheapest train" if action.train != @depot.min_depot_train
+
+              player = top_player(railway)
+              need = action.price - railway.cash
+              raise GameError, "#{player.name} must sell certificates first" if player.cash < need
+
+              player.spend(need, railway)
+              @log << "#{player.name} contributes #{@game.format_currency(need)}"
             end
-            @emergency_issued = true if pay != entity
-          end
+            raise GameError, "#{railway.name} has only #{@game.format_currency(railway.cash)}" if action.price > railway.cash
 
-          def climb(entity, pay, short)
-            if pay.cash.positive?
-              @log << "#{pay.name} gives #{@game.format_currency(pay.cash)} to #{entity.name}"
-              short -= pay.cash
-              pay.spend(pay.cash, entity)
-            end
-            @log << "#{pay.name} cannot cover the remaining #{@game.format_currency(short)}; " \
-                    "the call goes to #{pay.owner.minor? ? pay.owner.full_name : pay.owner.name}"
-            @game.price_left(pay)
-            @payer = pay.owner
-          end
-
-          def pay_up(entity, pay, short)
-            player = top_player(pay)
-            if pay.minor? && (from = [pay.cash, short].min).positive?
-              pay.spend(from, entity)
-              @log << "#{pay.full_name} pays #{@game.format_currency(from)} to #{entity.name}"
-              short -= from
-            end
-            return unless short.positive?
-
-            player.spend(short, entity)
-            @log << "#{player.name} pays #{@game.format_currency(short)} to #{entity.name}"
-          end
-
-          def bankrupt(entity, player, short)
-            @log << "-- #{player.name} is bankrupt: #{@game.format_currency(short)} short for #{entity.name}'s " \
-                    'train after selling everything allowed. The game ends --'
-            @game.declare_bankrupt(player)
+            super
           end
         end
       end

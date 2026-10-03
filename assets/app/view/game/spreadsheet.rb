@@ -703,9 +703,11 @@ module View
         shares_as_percent? && !num.zero? ? "#{(num * corporation.share_percent).round}%" : num
       end
 
-      # Certificates of this corporation held by other corporations
+      # Certificates of this corporation held by other corporations (and by
+      # minors, in games where minors own shares)
       def render_corporate_holders(corporation)
-        holders = @game.corporations.reject { |c| c == corporation || c.percent_of(corporation).zero? }
+        holders = @game.corporations + (@game.class::MINORS_CAN_OWN_SHARES ? @game.minors : [])
+        holders = holders.reject { |c| c == corporation || c.percent_of(corporation).zero? }
         total = holders.sum { |c| c.percent_of(corporation) }
         title = holders.map { |c| "#{c.name} #{c.percent_of(corporation)}%" }.join(', ')
         h('td.padded_number', { attrs: { title: title }, style: { color: total.zero? ? 'transparent' : 'inherit' } },

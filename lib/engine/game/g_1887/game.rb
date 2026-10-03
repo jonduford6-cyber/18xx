@@ -29,6 +29,10 @@ module Engine
         # game never ends because of it
         BANK_CASH = :unlimited
 
+        # In an emergency a Railway may buy another Railway's train; the
+        # president's contribution is not capped at face value
+        EBUY_FROM_OTHERS = :always
+
         CERT_LIMIT = { 3 => 20, 4 => 16 }.freeze
 
         STARTING_CASH = { 3 => 700, 4 => 520 }.freeze

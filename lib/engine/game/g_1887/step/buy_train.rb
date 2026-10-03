@@ -22,6 +22,9 @@ module Engine
         #     sells with the standard sell buttons and contributes the rest
         #     when buying; a player who cannot cover declares bankruptcy
         #     (the standard button; see Step::Bankrupt).
+        # Instead of the depot train, the Railway may buy another Railway's
+        # train at an agreed price of $1 or more (the standard list), the
+        # player's contribution not capped at face value.
         # Nobody sells more than is needed; no sale changes the Railway's
         # presidency.
         class BuyTrain < Engine::Step::BuyTrain
@@ -62,15 +65,18 @@ module Engine
             @depot.min_depot_price - entity.cash
           end
 
-          def buyable_trains(entity)
-            return [@depot.min_depot_train] if emergency?(entity)
-
-            super
+          # The price a Railway may offer for another Railway's train: $1 up
+          # to its own treasury; in an emergency, once the call has reached
+          # the player, plus the player's cash (no cap at face value)
+          def spend_minmax(entity, _train)
+            extra = emergency?(entity) && player_stage?(entity) ? top_player(entity).cash : 0
+            [1, entity.cash + extra]
           end
 
           # The tier the call has reached: the Railway's president, or higher
+          # (the climb applies only to the Railway in the emergency)
           def payer(railway)
-            @payer || railway.owner
+            (railway == current_entity && @payer) || railway.owner
           end
 
           # The player at the top: the payer if a player, Lombard Street's
@@ -259,10 +265,12 @@ module Engine
                     "to #{railway.name}"
           end
 
-          # The player at the top cannot cover what is still missing, even
-          # after selling everything they may
+          # The player at the top cannot cover what is still missing for the
+          # cheapest depot train, even after selling everything they may, and
+          # no other Railway has a train on offer
           def player_cannot_cover?(player, railway)
             return false if !railway&.corporation? || !player_stage?(railway) || player != top_player(railway)
+            return false if buyable_trains(railway).any? { |t| t.owner != @depot }
 
             value = @game.legal_bundles(player)
                          .reject { |some| changes_presidency?(railway, player, some) }
@@ -271,15 +279,17 @@ module Engine
             player.cash + value < shortfall(railway)
           end
 
+          # In an emergency the Railway may buy the cheapest depot train or
+          # another Railway's train (at an agreed price of $1 or more); the
+          # player contributes what its treasury lacks, with no cap
           def process_buy_train(action)
             railway = action.entity
             settle!(railway)
-            if emergency?(railway)
+            need = action.price - railway.cash
+            if emergency?(railway) && need.positive?
               raise GameError, "#{railway.name} must first issue" unless player_stage?(railway)
-              raise GameError, "#{railway.name} must buy the cheapest train" if action.train != @depot.min_depot_train
 
               player = top_player(railway)
-              need = action.price - railway.cash
               raise GameError, "#{player.name} must sell certificates first" if player.cash < need
 
               player.spend(need, railway)

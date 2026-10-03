@@ -20,8 +20,9 @@ module Engine
 
         CORPORATION_CLASS = G1887::Corporation
 
-        # Placeholder: 1887.json does not give a bank size.
-        BANK_CASH = 12_000
+        # The bank never runs out (section 12): it can always pay, and the
+        # game never ends because of it
+        BANK_CASH = :unlimited
 
         CERT_LIMIT = { 3 => 20, 4 => 16 }.freeze
 
@@ -52,7 +53,26 @@ module Engine
           { lay: true, upgrade: :not_if_upgraded, cost: 0, cannot_reuse_same_hex: true },
         ].freeze
 
-        GAME_END_CHECK = { bankrupt: :immediate, stock_market: :immediate, bank: :full_or }.freeze
+        # Section 12: bankruptcy and a price reaching 516 end the game at
+        # once. The first Diesel finishes the Operating Round set in
+        # progress, then one final Stock Round and one final Operating Round
+        # set (announce_final_rounds; the Confidence Track can add its own
+        # reason with the same timing).
+        GAME_END_CHECK = { bankrupt: :immediate, stock_market: :immediate, diesel: :one_more_full_or_set }.freeze
+
+        EVENTS_TEXT = Base::EVENTS_TEXT.merge(
+          'diesel_bought' => ['Game end',
+                              'The first Diesel ends the game after this Operating Round set, ' \
+                              'one final Stock Round and one final Operating Round set'],
+        ).freeze
+
+        GAME_END_REASONS_TEXT = Base::GAME_END_REASONS_TEXT.merge(
+          diesel: 'The first Diesel train is bought',
+        ).freeze
+
+        GAME_END_DESCRIPTION_REASON_MAP_TEXT = Base::GAME_END_DESCRIPTION_REASON_MAP_TEXT.merge(
+          diesel: 'The first Diesel was bought',
+        ).freeze
 
         PHASES = [
           {
@@ -104,8 +124,32 @@ module Engine
           { name: '4', distance: 4, price: 250, rusts_on: '6', num: 3 },
           { name: '5', distance: 5, price: 400, rusts_on: 'D', num: 3 },
           { name: '6', distance: 6, price: 500, num: 3 },
-          { name: 'D', distance: 999, price: 700, num: 'unlimited' },
+          { name: 'D', distance: 999, price: 700, num: 'unlimited', events: [{ 'type' => 'diesel_bought' }] },
         ].freeze
+
+        def event_diesel_bought!
+          return if @diesel_bought
+
+          @diesel_bought = true
+          announce_final_rounds('The first Diesel was bought')
+        end
+
+        def announce_final_rounds(what)
+          @log << "-- #{what}: the game ends after this Operating Round set, " \
+                  'one final Stock Round and one final Operating Round set --'
+        end
+
+        def game_end_check_diesel?
+          @diesel_bought
+        end
+
+        # The final Stock Round and Operating Round set are marked as final
+        def round_description(name, round_number = nil)
+          final = @final_turn && @turn == @final_turn && !@finished
+          return super unless final
+
+          "#{super} (final#{name == 'Stock' ? '' : ' set'})"
+        end
 
         # Optional rule: only two 6-trains
         def num_trains(train)

@@ -20,6 +20,33 @@ module Engine
             super.merge(lombard_bought: false)
           end
 
+          # Baring & Robertson Credit's pull-back: a button in its owner's
+          # turn that is not a buy
+          def actions(entity)
+            acts = super
+            return acts unless choice_available?(entity)
+
+            (acts.empty? ? %w[pass] : acts) + %w[choose]
+          end
+
+          def choice_available?(entity)
+            entity == current_entity && entity.player? && @game.confidence_pull_back_allowed?(entity)
+          end
+
+          def choice_name
+            'Confidence Track'
+          end
+
+          def choices
+            { 'pull_back' => "Baring & Robertson Credit: pull the track back to space #{@game.confidence - 1}" }
+          end
+
+          def process_choose(action)
+            raise GameError, 'The Confidence Track cannot be pulled back now' unless choice_available?(action.entity)
+
+            @game.pull_back_confidence!(action.entity)
+          end
+
           def can_ipo_any?(entity)
             !lombard_startable(entity).empty?
           end
@@ -106,6 +133,7 @@ module Engine
             track_action(action, corporation)
             @round.lombard_bought = true
             @game.check_presidency(corporation)
+            @game.advance_confidence!
           end
 
           # Starting a company: only for Lombard, through its owner
@@ -149,6 +177,7 @@ module Engine
             @game.lombard_start(corporation, action.share_price)
             track_action(action, corporation)
             @round.lombard_bought = true
+            @game.advance_confidence!
           end
         end
       end

@@ -63,7 +63,17 @@ module Engine
         # progress, then one final Stock Round and one final Operating Round
         # set (announce_final_rounds; the Confidence Track can add its own
         # reason with the same timing).
-        GAME_END_CHECK = { bankrupt: :immediate, stock_market: :immediate, diesel: :one_more_full_or_set }.freeze
+        # The Confidence Track reaching its last space (sections 12, 12.2):
+        # the rest of that Stock Round, then one Operating Round set, then
+        # the end (the engine's full_or). Only the first of the Diesel and
+        # the track counts (first_ending); 516 and bankruptcy always end the
+        # game at once.
+        GAME_END_CHECK = {
+          bankrupt: :immediate,
+          stock_market: :immediate,
+          diesel: :one_more_full_or_set,
+          confidence: :full_or,
+        }.freeze
 
         EVENTS_TEXT = Base::EVENTS_TEXT.merge(
           'close_privates' => ['Privates close',
@@ -78,10 +88,12 @@ module Engine
 
         GAME_END_REASONS_TEXT = Base::GAME_END_REASONS_TEXT.merge(
           diesel: 'The first Diesel train is bought',
+          confidence: 'The Confidence Track reaches its final space',
         ).freeze
 
         GAME_END_DESCRIPTION_REASON_MAP_TEXT = Base::GAME_END_DESCRIPTION_REASON_MAP_TEXT.merge(
           diesel: 'The first Diesel was bought',
+          confidence: 'The Confidence Track reached its final space',
         ).freeze
 
         PHASES = [
@@ -177,6 +189,12 @@ module Engine
           return if @diesel_bought
 
           @diesel_bought = true
+          if @first_ending
+            @log << 'The first Diesel was bought; the game already ends as the Confidence Track set (no change)'
+            return
+          end
+
+          @first_ending = :diesel
           announce_final_rounds('The first Diesel was bought')
         end
 
@@ -186,15 +204,78 @@ module Engine
         end
 
         def game_end_check_diesel?
-          @diesel_bought
+          @first_ending == :diesel
+        end
+
+        def game_end_check_confidence?
+          @first_ending == :confidence
         end
 
         # The final Stock Round and Operating Round set are marked as final
         def round_description(name, round_number = nil)
-          final = @final_turn && @turn == @final_turn && !@finished
-          return super unless final
+          return super if @finished
 
-          "#{super} (final#{name == 'Stock' ? '' : ' set'})"
+          if @final_turn && @turn == @final_turn
+            "#{super} (final#{name == 'Stock' ? '' : ' set'})"
+          elsif @first_ending == :confidence && @turn == @confidence_turn && name != 'Stock'
+            "#{super} (final set)"
+          else
+            super
+          end
+        end
+
+        # Section 12.2: the Confidence Track, 7 spaces, starting on space 1.
+        # Each Lombard Street purchase (or start) moves it one space; shown
+        # on Lombard Street's card and in the log.
+        CONFIDENCE_SPACES = 7
+
+        def confidence
+          @confidence || 1
+        end
+
+        def advance_confidence!
+          return if confidence >= CONFIDENCE_SPACES
+
+          @confidence = confidence + 1
+          @log << "The Confidence Track advances to space #{confidence} of #{CONFIDENCE_SPACES}"
+          show_confidence
+          return if confidence < CONFIDENCE_SPACES
+
+          if @first_ending
+            @log << 'The Confidence Track reached its final space; the game already ends as the first Diesel set ' \
+                    '(no change)'
+            return
+          end
+
+          @first_ending = :confidence
+          @confidence_turn = @turn
+          @log << '-- The Confidence Track reached its final space: the rest of this Stock Round is played, then ' \
+                  'one final Operating Round set, then the game ends --'
+          show_confidence
+        end
+
+        # Baring & Robertson Credit, once per game, in its owner's Stock Round
+        # turn: the track back one space (only above space 1, never from 7)
+        def confidence_pull_back_allowed?(player)
+          brc = company_by_id('BRC')
+          brc && !brc.closed? && brc.owner == player && !@confidence_pulled &&
+            confidence > 1 && confidence < CONFIDENCE_SPACES
+        end
+
+        def pull_back_confidence!(player)
+          @confidence_pulled = true
+          @confidence = confidence - 1
+          @log << "#{player.name} uses Baring & Robertson Credit: the Confidence Track goes back to space " \
+                  "#{confidence} of #{CONFIDENCE_SPACES}"
+          show_confidence
+        end
+
+        def show_confidence
+          text = "Confidence Track: space #{confidence} of #{CONFIDENCE_SPACES}"
+          text += ' (the game ends after the next Operating Round set)' if @first_ending == :confidence
+          @confidence_ability ||= Engine::Ability::Description.new(type: 'description', description: text)
+          @confidence_ability.description = text
+          lombard.add_ability(@confidence_ability) unless lombard.all_abilities.include?(@confidence_ability)
         end
 
         # Optional rule: only two 6-trains
@@ -243,6 +324,7 @@ module Engine
           fourth = SEED_RAILWAYS.map { |id| corporation_by_id(id) }
                      .find { |r| r.share_holders.keys.all? { |h| h == r } }
           give_seed(lombard, fourth) if fourth
+          show_confidence
         end
 
         # Estancia Land Grant (4 players only) concerns J10: show its marker
@@ -530,7 +612,9 @@ module Engine
 
         # The final Stock Round (after the Diesel)
         def final_stock_round?
-          @round.is_a?(Engine::Round::Stock) && @final_turn && @turn == @final_turn
+          return false unless @round.is_a?(Engine::Round::Stock)
+
+          (@final_turn && @turn == @final_turn) || (@first_ending == :confidence && @turn == @confidence_turn)
         end
 
         # One space lower on the market (left, or down a row at the edge)

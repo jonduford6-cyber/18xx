@@ -226,10 +226,35 @@ module Engine
           super
         end
 
-        # Entities tab: group corporations under their controlling human
+        # Entities tab: each player's column lists the corporations that
+        # player controls in tree order, every corporation right after its
+        # president (Finance House, its Construction Companies, their
+        # Railways). The player's own Railways come first (BAGS, BAWR, then
+        # by name); other siblings in operating order, then name. A
+        # corporation caught in an unexpected loop of presidents goes last
+        # in the first player's column, so no card is ever hidden.
+        RAILWAY_ORDER = %w[BAGS BAWR].freeze
+
         def player_sort(entities)
-          entities.sort_by { |e| [operating_order.index(e) || Float::INFINITY, e.name] }
-            .group_by { |e| acting_for_entity(e) }
+          rank = ->(e) { [operating_order.index(e) || Float::INFINITY, e.name] }
+          rail_first = lambda do |e|
+            next [1, *rank.call(e)] unless tier(e) == 2
+
+            [0, RAILWAY_ORDER.index(e.id) || RAILWAY_ORDER.size, 0, e.name]
+          end
+          children = entities.group_by(&:owner)
+          placed = {}
+          walk = lambda do |parent|
+            (children[parent] || []).sort_by(&(parent.player? ? rail_first : rank)).flat_map do |c|
+              next [] if placed[c]
+
+              placed[c] = true
+              [c, *walk.call(c)]
+            end
+          end
+          ordered = @players.flat_map { |p| walk.call(p) }
+          ordered.concat(entities.reject { |e| placed[e] }.sort_by(&rank))
+          ordered.group_by { |e| controller(e) || @players.first }
         end
 
         # Show share quantities as percentages on cards, the spreadsheet and

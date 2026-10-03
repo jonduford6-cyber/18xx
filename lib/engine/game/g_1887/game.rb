@@ -282,19 +282,32 @@ module Engine
             .select { |c| c.presidents_share.owner == c }
         end
 
-        # 10.5 / 11.3.3: the whole amount goes into the new company, which
-        # gets the bank subsidy (par x 1); the starter takes the president's
-        # certificate. The price marker waits beside the market until the
-        # next Operating Round (11.1), so the new company cannot operate,
-        # or be traded, before then.
+        # Railways a Construction Company may start (10.5): the seed
+        # Railways, and Entre Rios from phase 4 (the first 4-train)
+        def startable_railways
+          ids = SEED_RAILWAYS + (@phase.available?('4') ? %w[ER] : [])
+          ids.map { |id| corporation_by_id(id) }.select { |c| c.presidents_share.owner == c }
+        end
+
+        # Started without the bank subsidy
+        NO_SUBSIDY = %w[ER].freeze
+
+        # 10.5 / 11.3.3: a Finance House starts a Construction Company, a
+        # Construction Company starts a Railway. The whole amount goes into
+        # the new company, which gets the bank subsidy (par x 1; not ER);
+        # the starter takes the president's certificate. The price marker
+        # waits beside the market until the next Operating Round (11.1), so
+        # the new company cannot operate, or be traded, before then.
         def start_company(starter, company, amount)
           par = finance_house_par(amount)
           @log << "#{starter.name} starts #{company.name} with " \
                   "#{format_currency(amount)} (par #{format_currency(par.price)})"
           share_pool.buy_shares(starter, company.presidents_share, exchange: :free)
           starter.spend(amount, company)
-          @bank.spend(par.price, company)
-          @log << "bank pays #{company.name} subsidy #{format_currency(par.price)}"
+          unless NO_SUBSIDY.include?(company.id)
+            @bank.spend(par.price, company)
+            @log << "bank pays #{company.name} subsidy #{format_currency(par.price)}"
+          end
           company.par_price = par
           (@pending_markers ||= []) << company
           @log << "#{company.name}'s price marker waits beside the market " \

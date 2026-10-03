@@ -55,13 +55,15 @@ module Engine
             'Buy'
           end
 
-          # Construction Companies this Finance House may start now
+          # Companies this corporation may start now: a Finance House starts
+          # Construction Companies, a Construction Company starts Railways
           def available
             entity = current_entity
-            return [] unless @game.finance_house?(entity)
+            return [] unless @game.financial?(entity)
             return [] if entity.cash < START_MIN
+            return @game.startable_construction_companies if @game.finance_house?(entity)
 
-            @game.startable_construction_companies
+            @game.startable_railways
           end
 
           def ipo_type(_corporation)
@@ -92,18 +94,43 @@ module Engine
             entity = action.entity
             company = action.corporation
             amount = action.price
-            raise GameError, "#{entity.name} cannot start #{company&.name}" unless available.include?(company)
+            if (refusal = start_refusal(entity, company))
+              raise GameError, refusal
+            end
 
-            valid = amount.between?(START_MIN, entity.cash) && (amount % min_increment).zero?
-            unless valid
-              raise GameError, 'Amount must be a multiple of ' \
-                               "#{@game.format_currency(min_increment)} from " \
-                               "#{@game.format_currency(START_MIN)} to " \
-                               "#{@game.format_currency(entity.cash)}"
+            fmt = ->(v) { @game.format_currency(v) }
+            raise GameError, "The amount must be a multiple of #{fmt[min_increment]}" unless (amount % min_increment).zero?
+            raise GameError, "The amount must be at least #{fmt[START_MIN]}" if amount < START_MIN
+            if amount > entity.cash
+              raise GameError, "The amount must not be more than #{entity.name}'s treasury (#{fmt[entity.cash]})"
             end
 
             @game.start_company(entity, company, amount)
             pass!
+          end
+
+          # Why this corporation cannot start that company now (nil if it can)
+          def start_refusal(entity, company)
+            return if available.include?(company)
+            return 'Choose a company to start' unless company&.corporation?
+
+            name = company.name
+            return "#{name} was floated at Setup and cannot be started" if @game.class::PREFLOATED.key?(company.id)
+            return "#{name} is a Finance House and cannot be started" if @game.finance_house?(company)
+
+            if @game.financial?(company)
+              return "Only a Finance House can start #{name}" unless @game.finance_house?(entity)
+            else
+              return "A Finance House cannot start a Railway (#{name})" if @game.finance_house?(entity)
+              return "Only a Construction Company can start #{name}" unless @game.financial?(entity)
+              return "#{name} can be started only from phase 4" if company.id == 'ER' && !@game.phase.available?('4')
+            end
+            return "#{name} has already been started" unless company.presidents_share.owner == company
+            if entity.cash < START_MIN
+              return "#{entity.name} needs at least #{@game.format_currency(START_MIN)} to start a company"
+            end
+
+            "#{entity.name} cannot start #{name}"
           end
 
           # Corporations below the buyer's tier with a market price; one
@@ -137,7 +164,9 @@ module Engine
           def choices
             entity = current_entity
             list = buy_options(entity).to_h { |o| [o[:choice], o[:label]] }
-            list['start'] = 'Start a Construction Company' unless available.empty?
+            unless available.empty?
+              list['start'] = @game.finance_house?(entity) ? 'Start a Construction Company' : 'Start a Railway'
+            end
             list
           end
 

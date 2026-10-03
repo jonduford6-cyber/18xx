@@ -61,6 +61,18 @@ module Engine
             @game.recheck_operating_order
           end
 
+          # Lombard Street (a minor) is paid too: cash into its treasury, never
+          # a chain choice (it is not a corporation)
+          def payout_shares(entity, revenue)
+            per_share = payout_per_share(entity, revenue)
+            payouts = {}
+            (@game.players + @game.corporations + @game.minors).each do |payee|
+              payout_entity(entity, payee, per_share, payouts)
+            end
+            receivers = payouts.sort_by { |_r, c| -c }.map { |r, c| "#{@game.format_currency(c)} to #{r.name}" }.join(', ')
+            log_payout_shares(entity, revenue, per_share, receivers)
+          end
+
           # PAY always moves right, WITHHOLD left, whatever the remainder
           def dividend_options(entity)
             options = super

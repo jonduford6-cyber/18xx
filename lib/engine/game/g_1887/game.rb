@@ -462,7 +462,7 @@ module Engine
           per_share = amount.div(corp.total_shares)
           fmt = ->(v) { format_currency(v) }
           paid = {}
-          (@players + @corporations).each do |holder|
+          (@players + @corporations + @minors).each do |holder|
             next if (pay = holder.num_shares_of(corp) * per_share).zero?
 
             corp.spend(pay, holder) unless holder == corp

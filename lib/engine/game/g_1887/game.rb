@@ -44,6 +44,14 @@ module Engine
           %w[20 22 25 27],
         ].freeze
 
+        # 11.4: two track actions on two different hexes: two placements,
+        # or one placement and one upgrade in either order (never two
+        # upgrades, never the hex already built on this turn)
+        TILE_LAYS = [
+          { lay: true, upgrade: true, cost: 0 },
+          { lay: true, upgrade: :not_if_upgraded, cost: 0, cannot_reuse_same_hex: true },
+        ].freeze
+
         GAME_END_CHECK = { bankrupt: :immediate, stock_market: :immediate, bank: :full_or }.freeze
 
         PHASES = [

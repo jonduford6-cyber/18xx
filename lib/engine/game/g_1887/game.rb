@@ -95,9 +95,16 @@ module Engine
           { name: '3', distance: 3, price: 150, rusts_on: '5', num: 5 },
           { name: '4', distance: 4, price: 250, rusts_on: '6', num: 3 },
           { name: '5', distance: 5, price: 400, rusts_on: 'D', num: 3 },
-          { name: '6', distance: 6, price: 500, num: 2 },
+          { name: '6', distance: 6, price: 500, num: 3 },
           { name: 'D', distance: 999, price: 700, num: 'unlimited' },
         ].freeze
+
+        # Optional rule: only two 6-trains
+        def num_trains(train)
+          return 2 if train[:name] == '6' && optional_rules.include?(:two_six_trains)
+
+          super
+        end
 
         FINANCE_HOUSES = %w[BB HAM MUR].freeze
 

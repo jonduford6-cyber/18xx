@@ -14,6 +14,14 @@ module Engine
         GAME_LOCATION = 'Argentina'
 
         PLAYER_RANGE = [3, 4].freeze
+
+        OPTIONAL_RULES = [
+          {
+            sym: :two_six_trains,
+            short_name: 'Two 6-trains',
+            desc: 'Only two 6-trains are available instead of three.',
+          },
+        ].freeze
       end
     end
   end

@@ -37,6 +37,24 @@ module Engine
             entity
           end
 
+          # A payment to the corporation presiding over the Railway climbs
+          # the chain (Game#chain_receive) once the Railway's own payout and
+          # price move are done
+          def process_dividend(action)
+            @chain_receipt = nil
+            super
+            return unless (receipt = @chain_receipt)
+
+            @chain_receipt = nil
+            @game.chain_receive(receipt[0], receipt[1], action.entity)
+          end
+
+          def payout_entity(entity, holder, per_share, payouts)
+            super
+            presides = holder.corporation? && holder != entity && entity.owner == holder
+            @chain_receipt = [holder, payouts[holder]] if presides && payouts[holder]
+          end
+
           # PAY always moves right, WITHHOLD left, whatever the remainder
           def dividend_options(entity)
             options = super

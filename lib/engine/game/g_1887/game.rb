@@ -319,6 +319,61 @@ module Engine
           check_presidency(target)
         end
 
+        # 11.7 chain. A corporation receiving money from a company it
+        # presides over moves one space right, then chooses to pay on or
+        # withhold (a waiting list in the round, one corporation at a time).
+        # Under $1 per share (amount div shares) it must withhold: the price
+        # moves back left, so the net move is zero.
+        def chain_receive(corp, amount, payer)
+          chain_move(corp, :right)
+          if amount.div(corp.total_shares) < 1
+            @log << "#{corp.name} must withhold #{format_currency(amount)}: less than " \
+                    "#{format_currency(1)} per share for its #{corp.total_shares} shares"
+            chain_move(corp, :left)
+          else
+            @round.chain_pending << { corporation: corp, amount: amount, from: payer }
+          end
+        end
+
+        # Pay on: whole dollars per share to the corporation's holders, from
+        # its treasury. Its own Treasury certificates pay itself, the bank
+        # pool's go to the bank, the remainder stays. Price one more space
+        # right. A presiding corporation above then receives in turn.
+        def chain_pay_on(corp, amount)
+          per_share = amount.div(corp.total_shares)
+          fmt = ->(v) { format_currency(v) }
+          paid = {}
+          (@players + @corporations).each do |holder|
+            next if (pay = holder.num_shares_of(corp) * per_share).zero?
+
+            corp.spend(pay, holder) unless holder == corp
+            paid[holder] = pay
+          end
+          receivers = paid.sort_by { |_h, v| -v }.map { |h, v| "#{fmt[v]} to #{h.name}" }.join(', ')
+          @log << "#{corp.name} pays out #{fmt[amount]}: #{fmt[per_share]} per share" \
+                  "#{receivers.empty? ? '' : " (#{receivers})"}"
+          if (pool = @share_pool.num_shares_of(corp) * per_share).positive?
+            corp.spend(pool, @bank)
+            @log << "#{fmt[pool]} for the bank pool's #{@share_pool.percent_of(corp)}% goes to the bank"
+          end
+          remainder = amount - (per_share * corp.total_shares)
+          @log << "#{corp.name} keeps the #{fmt[remainder]} remainder" if remainder.positive?
+          chain_move(corp, :right)
+          parent = corp.owner
+          chain_receive(parent, paid[parent], corp) if parent&.corporation? && paid[parent]
+        end
+
+        def chain_withhold(corp, amount)
+          @log << "#{corp.name} withholds #{format_currency(amount)} (its price stays)"
+        end
+
+        def chain_move(corp, direction)
+          return unless (old = corp.share_price)
+
+          direction == :right ? @stock_market.move_right(corp) : @stock_market.move_left(corp)
+          log_share_price(corp, old)
+        end
+
         # Not yet started: the president's certificate is in its treasury
         def startable_construction_companies
           CONSTRUCTION_COS.map { |id| corporation_by_id(id) }
@@ -379,6 +434,7 @@ module Engine
             G1887::Step::Token,
             G1887::Step::Route,
             G1887::Step::Dividend,
+            G1887::Step::ChainDividend,
             G1887::Step::DiscardTrain,
             G1887::Step::BuyTrain,
             [G1887::Step::BuyCompany, { blocks: true }],

@@ -984,6 +984,40 @@ module Engine
           shares.size.times { price_down(corporation) }
         end
 
+        # 12: scoring. A player's score: personal cash, every certificate
+        # they hold at its final market price ($60 per certificate in a
+        # company that never reached the market), privates at face value;
+        # certificates held by a corporation in a company outside its own
+        # chain count for the player at the top of that chain; Lombard
+        # Street's cash and certificates count for its owner. Treasury
+        # certificates and Railway-owned privates count for nobody.
+        NEVER_ON_MARKET_VALUE = 60
+
+        def on_market?(corporation)
+          !corporation.founding && corporation.share_price&.corporations&.include?(corporation)
+        end
+
+        def certificate_value(share)
+          corporation = share.corporation
+          on_market?(corporation) ? corporation.share_price.price * share.num_shares : NEVER_ON_MARKET_VALUE
+        end
+
+        # A corporation's certificates in companies outside its own chain
+        def corporate_holding_value(holder)
+          chain = control_holders(holder)
+          holder.shares.reject { |sh| chain.include?(sh.corporation) }.sum { |sh| certificate_value(sh) }
+        end
+
+        def player_value(player)
+          value = player.cash + player.shares.sum { |sh| certificate_value(sh) } + player.companies.sum(&:value)
+          actors = [player]
+          if lombard&.owner == player
+            value += lombard.cash + lombard.shares.sum { |sh| certificate_value(sh) }
+            actors << lombard
+          end
+          value + @corporations.select { |c| actors.include?(control_actor(c)) }.sum { |c| corporate_holding_value(c) }
+        end
+
         # 10.6: control. A player's control of a company counts the
         # certificates the player holds in it and those held by every
         # corporation down the player's chain of presidencies. Lombard Street

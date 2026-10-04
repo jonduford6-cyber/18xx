@@ -486,7 +486,6 @@ module Engine
           deal_seed_certificates
           deal_corporate_seeds
           PREFLOATED.each { |id, price| prefloat(corporation_by_id(id), price) }
-          mark_estancia
           seed_lombard
         end
 
@@ -518,12 +517,50 @@ module Engine
           show_confidence
         end
 
-        # Estancia Land Grant (4 players only) concerns J10: show its marker
-        # there. Drawn only; with no blocks_hexes ability, track into J10 is
-        # not blocked (its corporate purchase and closing are not built yet).
-        def mark_estancia
-          elg = company_by_id('ELG')
-          hex_by_id('J10').tile.add_blocker!(elg) if elg
+        # Estancia Land Grant (4 players only): its standard blocks_hexes
+        # ability marks J10 and keeps track out of it until a Railway owns the
+        # private (the marker is then removed) or it closes at phase 5
+        def hex_blocked_by_ability?(entity, ability, hex, tile = nil)
+          return false if ability.owner.id == 'ELG' && ability.owner.owner&.corporation?
+
+          super
+        end
+
+        def after_sell_company(buyer, company, price, seller)
+          super
+          return unless company.id == 'ELG'
+
+          hex_by_id('J10').tile.remove_blocker!(company)
+        end
+
+        # La Boca Docks Lease: the terrain cost of the first tile its Railway
+        # lays on Buenos Aires (F16) or the approach with a printed cost (E17)
+        # is not charged, once only. A player-owned La Boca does nothing.
+        LA_BOCA_HEXES = %w[F16 E17].freeze
+
+        def upgrade_cost(tile, hex, entity, spender)
+          cost = super
+          la_boca = company_by_id('LBDL')
+          return cost if !cost.positive? || !LA_BOCA_HEXES.include?(hex.id) || !la_boca || la_boca.closed?
+          return cost if la_boca.owner != entity || !entity.corporation? || @la_boca_used
+
+          @la_boca_used = true
+          @log << "#{la_boca.name}: #{entity.name} pays no terrain cost on #{hex.id} (#{format_currency(cost)})"
+          0
+        end
+
+        # Parana Ferry Company: only a Railway owning it may run a route over
+        # F24 or G21 (the way to the Atlantic Export)
+        FERRY_HEXES = %w[F24 G21].freeze
+
+        def check_other(route)
+          super
+          return if (route.all_hexes.map(&:id) & FERRY_HEXES).empty?
+
+          ferry = company_by_id('PFC')
+          return if ferry && !ferry.closed? && ferry.owner == route.corporation
+
+          raise GameError, "Only a Railway owning #{ferry&.name || 'the Parana Ferry Company'} may run over F24 or G21"
         end
 
         # Railways floated at Setup => their fixed starting price

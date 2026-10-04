@@ -21,6 +21,7 @@ require 'view/game/cash_crisis'
 require 'view/game/double_head_trains'
 require 'view/game/combined_trains'
 require 'view/game/buy_token'
+require 'view/game/card_choices'
 require 'view/game/corporate_buy_companies'
 require 'view/game/corporate_sell_companies'
 
@@ -100,7 +101,14 @@ module View
           elsif entity.operator? && entity.floated?
             left << h(Corporation, corporation: entity)
             if @step.respond_to?(:show_other) && @step.show_other
-              Array(@step.show_other).each { |other_corporation| left << h(Corporation, corporation: other_corporation) }
+              Array(@step.show_other).each do |other_corporation|
+                # opt-in (1887's Finance House and Construction Company turn): buttons on the card
+                left << if @step.respond_to?(:card_choices)
+                          h(CardChoices, corporation: other_corporation)
+                        else
+                          h(Corporation, corporation: other_corporation)
+                        end
+              end
             end
           elsif (company = entity).company?
             left << h(Company, company: company)

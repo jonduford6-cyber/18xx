@@ -224,34 +224,62 @@ module Engine
             list
           end
 
+          # The turn menu: Start, Merge, Issue and Redeem (Pass is the Pass
+          # button). Selling and buying shares of other companies are on those
+          # companies' cards (card_choices); a required sale is the menu's
+          # only set of buttons (it is the corporation's only action).
           def choices
             entity = current_entity
             forced = @game.forced_corporation_sales(entity)
             return forced.to_h { |some| sell_option(some) } unless forced.empty?
 
-            list = other_options(entity).select { |o| o[:choice].start_with?('sell:') }.to_h { |o| [o[:choice], o[:label]] }
-            list.merge!(buy_options(entity).to_h { |o| [o[:choice], o[:label]] })
+            list = {}
             unless available.empty?
               list['start'] = @game.finance_house?(entity) ? 'Start a Construction Company' : 'Start a Railway'
             end
-            list.merge!(other_options(entity).reject { |o| o[:choice].start_with?('sell:') }.to_h { |o| [o[:choice], o[:label]] })
-            list.merge(@game.merge_options(entity).to_h { |choice, label, _, _| [choice, label] })
+            list.merge!(@game.merge_options(entity).to_h { |choice, label, _, _| [choice, label] })
+            others = other_options(entity).reject { |o| o[:choice].start_with?('sell:') }
+            list.merge!(others.sort_by { |o| o[:choice] == 'redeem' ? 1 : 0 }.to_h { |o| [o[:choice], o[:label]] })
+            list
           end
 
-          # The company's name once Sell, Redeem or Reissue is offered; the
-          # older headings otherwise
+          # The shared Choose view draws nothing when the menu is empty
+          def render_choices?
+            !choices.empty?
+          end
+
+          # The company's name before the menu
           def choice_name
-            entity = current_entity
-            return entity.name if !other_options(entity).empty? || !@game.forced_corporation_sales(entity).empty? ||
-                                  !@game.merge_options(entity).empty?
-
-            available.empty? ? 'Buy' : 'Buy or Start'
+            current_entity.name
           end
 
-          # Cards of the corporations offered, below the buyer's own card
+          # The buttons on another company's card: this corporation's legal
+          # sales and purchases of that company's shares, with the same
+          # choices (and so the same actions and log lines) the menu had.
+          # Nothing during a required sale.
+          def card_choices(corporation)
+            entity = current_entity
+            return [] if !@game.financial?(entity) || !@game.forced_corporation_sales(entity).empty?
+
+            fmt = ->(v) { @game.format_currency(v) }
+            sells = other_options(entity).select { |o| o[:choice].start_with?('sell:') && o[:share].corporation == corporation }
+                                         .map { |o| [o[:choice], "Sell #{o[:shares].sum(&:percent)}% (#{fmt[corporation.share_price.price * o[:shares].size]})"] }
+            buys = buy_options(entity).select { |o| o[:share].corporation == corporation }.map do |o|
+              source = o[:choice].split(':').first
+              [o[:choice], "Buy #{o[:share].percent}% #{source} Share (#{fmt[o[:price]]})"]
+            end
+            sells + buys
+          end
+
+          # Cards of the corporations offered, below the acting corporation's
+          # own card: those with sales or purchases, and a merge's two
+          # companies; during a required sale, the company to sell
           def show_other
             entity = current_entity
-            ((buy_options(entity) + other_options(entity)).map { |o| o[:share].corporation } +
+            forced = @game.forced_corporation_sales(entity)
+            return forced.map { |some| some.first.corporation }.uniq - [entity] unless forced.empty?
+
+            ((buy_options(entity) + other_options(entity).select { |o| o[:choice].start_with?('sell:') }).map { |o| o[:share].corporation } +
              @game.merge_options(entity).flat_map { |_, _, s, r| [s, r] }).uniq - [entity]
           end
 

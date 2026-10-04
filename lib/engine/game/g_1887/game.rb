@@ -500,10 +500,24 @@ module Engine
           end
 
           super
+          # 2: the seating order, as the players were seated when the game
+          # began (a list of ids nothing re-sorts: @players is re-sorted into
+          # priority order after the auction and every Stock Round)
+          @seating = @players.map(&:id)
           deal_seed_certificates
           deal_corporate_seeds
           PREFLOATED.each { |id, price| prefloat(corporation_by_id(id), price) }
           seed_lombard
+        end
+
+        # Every rule that says "clockwise" (9.4 who gets the new shares, 16.5 the
+        # vote, 16.6 the auction, a tie for a presidency) follows the seating,
+        # not the priority cards: the players round the table, starting with
+        # `player` (or from the first seat)
+        def clockwise_from(player = nil)
+          ring = @players.sort_by { |p| @seating.index(p.id) || 0 }
+          at = player && ring.index(player)
+          at ? ring.rotate(at) : ring
         end
 
         # Company cards show holdings for Lombard Street too (a minor), not
@@ -1231,7 +1245,7 @@ module Engine
           return pres unless pres
 
           held = ->(h) { h.percent_of(corporation) + changes.fetch(h, 0) }
-          players = pres.player? ? @players.rotate(@players.index(pres)) : @players
+          players = clockwise_from(pres.player? ? pres : nil)
           corps = @corporations.reject { |c| c.closed? || c == corporation }
           top = [pres, *players, *@minors, *corps].max_by(&held) # Lombard Street counts like a player
           held[top] > held[pres] ? top : pres
@@ -1349,8 +1363,28 @@ module Engine
           (@completed_operating_turns ||= []).include?(corporation)
         end
 
+        # 9.9: a merged company may merge again once it has taken a turn in an
+        # Operating Round. This marker (separate from the list above, which
+        # decides who operates) is set by a merger and clears at the end of
+        # the survivor's next turn.
+        def merged_since_turn?(corporation)
+          (@merged_since_turn ||= {}).key?(corporation)
+        end
+
+        # The turn in which a company merges does not count: when the survivor
+        # is the one operating (it proposed), its current turn ends first
+        def mark_merged!(corporation)
+          operating = @round.respond_to?(:current_operator) && @round.current_operator == corporation
+          (@merged_since_turn ||= {})[corporation] = operating ? :this_turn : :later
+        end
+
         def after_end_of_operating_turn(operator)
           super
+          if (@merged_since_turn ||= {})[operator] == :this_turn
+            @merged_since_turn[operator] = :later
+          else
+            @merged_since_turn.delete(operator)
+          end
           return if !operator.corporation? || operator.retired || completed_operating_turn?(operator)
 
           (@completed_operating_turns ||= []) << operator

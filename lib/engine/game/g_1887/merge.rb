@@ -29,7 +29,7 @@ module Engine
 
         def merge_ready?(corporation)
           corporation.floated? && !corporation.retired && on_market?(corporation) &&
-            completed_operating_turn?(corporation) &&
+            completed_operating_turn?(corporation) && !merged_since_turn?(corporation) && # 9.9
             (corporation.id != 'BAWR' || held_back_bawr.empty?) # 10.4: not while BAWR's exchange certificates wait
         end
 
@@ -54,10 +54,13 @@ module Engine
                        .combination(2).to_a.select { |a, b| a.owner == proposer || b.owner == proposer }
         end
 
-        # The charter that survives: the higher station limit (Railways),
-        # then the higher price; both if still tied (the proposer chooses)
+        # The charter that survives: the higher station limit (Railways) or
+        # the higher price (the other tiers); both if tied (the proposer
+        # chooses)
         def merge_survivors(a, b)
-          key = ->(c) { [tier(c) == 2 ? STATION_LIMIT.fetch(c.id, 0) : 0, c.share_price.price] }
+          # 9.3: Railways by station limit only (a tie in the limit is the
+          # proposer's choice); Construction Companies and Finance Houses by price
+          key = ->(c) { tier(c) == 2 ? STATION_LIMIT.fetch(c.id, 0) : c.share_price.price }
           order = key.call(a) <=> key.call(b)
           return [a] if order.positive?
           return [b] if order.negative?
@@ -149,7 +152,7 @@ module Engine
         # Lombard Street if he owns it. A company's own treasury and the
         # bank pool do not vote here.
         def vote_blocks(proposer, a, b)
-          @players.rotate(@players.index(proposer)).flat_map do |player|
+          clockwise_from(proposer).flat_map do |player|
             player_holders(player).filter_map do |h|
               n = (h == a ? 0 : units_of(h, a)) + (h == b ? 0 : units_of(h, b))
               [player, h, n] if n.positive?
@@ -239,7 +242,9 @@ module Engine
           certs_now = player.shares.count { |s| [survivor, retired].include?(s.corporation) }
           return false if num_certs(player) - certs_now + (units - 1) > cert_limit(player)
 
-          others = player_holders(player).reject { |h| h == player || [survivor, retired].include?(h) }
+          # 5.6: Lombard Street's shares, and those of the corporations it
+          # presides over, do not count toward its owner's control
+          others = player_holders(player).reject { |h| h == player || h.minor? || control_actor(h)&.minor? || [survivor, retired].include?(h) }
                                          .sum { |h| merge_units(h, survivor, retired).div(2) }
           (units + others) * unit_percent(survivor) <= self.class::CONTROL_LIMIT
         end
@@ -294,7 +299,7 @@ module Engine
         # apart (their certificates stay in the merged treasury).
         def merge_order(proposer, a, b)
           first = top_player(proposer)
-          players = first&.player? ? @players.rotate(@players.index(first)) : @players
+          players = clockwise_from(first&.player? ? first : nil)
           corps = @corporations.reject { |c| c.closed? || [a, b].include?(c) }
                                .select { |c| (units_of(c, a) + units_of(c, b)).positive? }
           players + corps.sort + [lombard].compact + [share_pool]
@@ -347,6 +352,7 @@ module Engine
           held = survivor.shares.map(&:corporation).uniq - [survivor]
           held.each { |c| check_presidency(c) }
           merge_timing!(survivor, retired, operated)
+          mark_merged!(survivor) # 9.9: no further merger until its next turn
           recheck_operating_order
         end
 
@@ -434,6 +440,7 @@ module Engine
           corporation.share_price&.corporations&.delete(corporation)
           corporation.retire!
           (@completed_operating_turns ||= []).delete(corporation)
+          (@merged_since_turn ||= {}).delete(corporation)
           @log << "#{corporation.name} is retired; its certificates and marker leave the game"
         end
 

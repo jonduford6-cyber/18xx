@@ -62,7 +62,7 @@ module Engine
             min = @game.control_min_bid(survivor, retired)
             @log << "#{player.name} announces the merger of #{survivor.name} and #{retired.name} " \
                     "(#{survivor.name} keeps its charter); minimum bid #{@game.format_currency(min)}"
-            bidders = @game.players.rotate(@game.players.index(player)).select do |p|
+            bidders = @game.clockwise_from(player).select do |p|
               p == player || @game.control_eligible?(p, survivor, retired, min)
             end
             @round.auction = {

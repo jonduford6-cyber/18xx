@@ -14,11 +14,9 @@ module Engine
       class Minor < Engine::Minor
         include ShareHolder
 
-        LOGO = 'data:image/svg+xml;charset=utf-8,' \
-               "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'>" \
-               "<circle cx='25' cy='25' r='24' fill='%231f3a5f'/>" \
-               "<text x='25' y='32' font-size='19' text-anchor='middle' fill='white' " \
-               "font-family='Arial'>LS</text></svg>"
+        # A logo served by the site (its content security policy blocks the
+        # data: images the first version used): the round 'LS' badge
+        LOGO = '/logos/1807/LS.svg'
 
         def num_shares_of(corporation, ceil: true)
           num = percent_of(corporation).to_f / corporation.share_percent

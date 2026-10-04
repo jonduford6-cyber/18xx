@@ -19,15 +19,30 @@ module Engine
           super
         end
 
+        def initialize(**opts)
+          super
+          @token_prices = @tokens.map(&:price)
+        end
+
+        # A retired charter is reset as one never started: no president, no
+        # marker, no history, no treasury, its tokens back on its charter
         def retire!
           @retired = true
+          @owner = nil
           @floated = false
           @ipoed = false
+          @founding = nil
           @share_price = nil
           @par_price = nil
           @trains = []
           @companies = []
           @cash = 0
+          @operating_history = {}
+          reset_tokens! if @tokens.none?(&:used)
+        end
+
+        def reset_tokens!
+          @tokens = @token_prices.map { |price| Engine::Token.new(self, price: price) }
         end
 
         # 10.5: after the founding payment, Treasury certificates sell at the

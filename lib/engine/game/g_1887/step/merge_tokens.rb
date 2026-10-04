@@ -45,6 +45,7 @@ module Engine
             surviving.tokens.clear
             surviving.tokens.concat((used + unused.sort_by(&:price)).first(limit(surviving)))
             @game.graph.clear_graph_for(surviving)
+            others.each { |o| o.reset_tokens! if o.retired } # the retired charter's tokens back on its card
             moved
           end
         end

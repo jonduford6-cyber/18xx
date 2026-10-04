@@ -139,6 +139,9 @@ module Engine
           retire!(retired)
           merge_unpaired!(survivor, plan)
 
+          # companies the retired charter presided over: its certificates
+          # are now the survivor's
+          @corporations.each { |c| c.owner = survivor if c.owner == retired }
           held = survivor.shares.map(&:corporation).uniq - [survivor]
           held.each { |c| check_presidency(c) }
           merge_timing!(survivor, retired, operated)
@@ -219,6 +222,7 @@ module Engine
         def retire!(corporation)
           corporation.share_price&.corporations&.delete(corporation)
           corporation.retire!
+          (@completed_operating_turns ||= []).delete(corporation)
           @log << "#{corporation.name} is retired; its certificates and marker leave the game"
         end
 

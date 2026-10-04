@@ -127,7 +127,7 @@ module Engine
             sym: 'PFC',
             value: 60,
             revenue: 15,
-            desc: 'Corporate-purchasable by a Railway: permanently substitutes for a normal ferry marker on that Railway. Hexes F24 and G21 (marked with the ferry icon on the map) cannot be used by any Railway that doesn\'t own this private. This is the only way to reach the Atlantic Export off-board. Closes at the start of phase 5.',
+            desc: 'Corporate-purchasable by a Railway: permanently substitutes for a normal ferry marker on that Railway. Hexes F24 and G21 (marked with the ferry icon on the map) cannot be used by any Railway that doesn\'t own this private. This is the only way to reach the Atlantic Export off-board. Stays open when phase 5 begins and pays no revenue from then on.',
             abilities: [],
             color: nil,
           },

@@ -569,8 +569,12 @@ module Engine
         # is not charged, once only. A player-owned La Boca does nothing.
         LA_BOCA_HEXES = %w[F16 E17].freeze
 
+        # 8.3: the terrain cost printed on the map is paid from the Railway's
+        # Treasury every time a tile is laid on the hex and every time a tile
+        # on it is upgraded (the standard cost belongs to the tile laid, so
+        # only the first one would pay it)
         def upgrade_cost(tile, hex, entity, spender)
-          cost = super
+          cost = hex.original_tile.upgrades.sum(&:cost)
           la_boca = company_by_id('LBDL')
           return cost if !cost.positive? || !LA_BOCA_HEXES.include?(hex.id) || !la_boca || la_boca.closed?
           return cost if la_boca.owner != entity || !entity.corporation? || @la_boca_used
@@ -786,11 +790,12 @@ module Engine
         # Under $1 per share (amount div shares) it must withhold: the price
         # moves back left, so the net move is zero.
         def chain_receive(corp, amount, payer)
+          start = corp.share_price
           chain_move(corp, :right)
           if amount.div(corp.total_shares) < 1
             @log << "#{corp.name} must withhold #{format_currency(amount)}: less than " \
                     "#{format_currency(1)} per share for its #{corp.total_shares} shares"
-            chain_move(corp, :left)
+            chain_restore(corp, start) # 8.7: it ends where it started
           else
             @round.chain_pending << { corporation: corp, amount: amount, from: payer }
           end
@@ -826,6 +831,17 @@ module Engine
 
         def chain_withhold(corp, amount)
           @log << "#{corp.name} withholds #{format_currency(amount)} (its price stays)"
+        end
+
+        # A forced withhold puts the marker back on the cell it started on
+        # (at the right edge "right" is up a row, so a move left would not
+        # lead back)
+        def chain_restore(corp, start)
+          return unless (old = corp.share_price) && start && old != start
+
+          @stock_market.move(corp, start.coordinates, force: true)
+          log_share_price(corp, old)
+          recheck_operating_order
         end
 
         def chain_move(corp, direction)
@@ -912,7 +928,7 @@ module Engine
         FINANCE_HOUSE_RESTART_MIN = 120
 
         def restartable_finance_houses(player)
-          return [] if !player.player? || player.cash < FINANCE_HOUSE_RESTART_MIN
+          return [] if !player.player? || player.cash < FINANCE_HOUSE_RESTART_MIN || !certificate_room_for_start?(player)
 
           @corporations.select { |c| c.retired && finance_house?(c) && control_ok?(player, c, c.presidents_share.percent) }
         end
@@ -972,9 +988,15 @@ module Engine
           (fresh + restartable_railways).select { |c| player_may_start?(player, c) }
         end
 
+        # 5.6: the president's certificate of a company a player starts is one
+        # certificate; the start must not take the player over the limit
+        def certificate_room_for_start?(player)
+          num_certs(player) + 1 <= cert_limit(player)
+        end
+
         def player_may_start?(player, company)
           min = stock_market.par_prices.map(&:price).min
-          player.cash >= min * 2 && control_ok?(player, company, company.presidents_share.percent)
+          player.cash >= min * 2 && certificate_room_for_start?(player) && control_ok?(player, company, company.presidents_share.percent)
         end
 
         # The player pays par x 2 to the bank for the president's

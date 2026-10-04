@@ -45,6 +45,7 @@ module Engine
             setup_auction
             @start_chosen = false
             @sold = false
+            @sold_companies = [] # 7.2: no buying back a company sold in the same turn
           end
 
           def description
@@ -150,6 +151,7 @@ module Engine
             targets.sort_by { |c| [@game.tier(c), c.name] }.flat_map do |target|
               price = target.share_price.price
               next [] if entity.cash < price
+              next [] if (@sold_companies ||= []).include?(target)
 
               { 'Treasury' => target, 'Market' => @game.share_pool }.filter_map do |source, holder|
                 share = holder.shares_of(target).find { |s| s.buyable && !s.president }
@@ -267,6 +269,7 @@ module Engine
 
               @game.sell_bundle(shares)
               @sold = true
+              (@sold_companies ||= []) << shares.first.corporation
               return if forced.empty?
 
               # 5.6: a required sale is the only action of the turn (no

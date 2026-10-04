@@ -7,12 +7,14 @@ require_relative 'corporation'
 require_relative 'lombard'
 require_relative 'share_pool'
 require_relative 'round/operating'
+require_relative 'merge'
 require_relative '../base'
 
 module Engine
   module Game
     module G1887
       class Game < Game::Base
+        include G1887::Merge
         include_meta(G1887::Meta)
         include Entities
         include Map
@@ -859,14 +861,14 @@ module Engine
         # Not yet started: the president's certificate is in its treasury
         def startable_construction_companies
           CONSTRUCTION_COS.map { |id| corporation_by_id(id) }
-            .select { |c| c.presidents_share.owner == c }
+            .select { |c| c.presidents_share.owner == c && !c.retired }
         end
 
         # Railways a Construction Company may start (10.5): the seed
         # Railways, and Entre Rios from phase 4 (the first 4-train)
         def startable_railways
           ids = SEED_RAILWAYS + (@phase.available?('4') ? %w[ER] : [])
-          ids.map { |id| corporation_by_id(id) }.select { |c| c.presidents_share.owner == c }
+          ids.map { |id| corporation_by_id(id) }.select { |c| c.presidents_share.owner == c && !c.retired }
         end
 
         # Started without the bank subsidy
@@ -884,7 +886,8 @@ module Engine
 
           min = stock_market.par_prices.map(&:price).min
           PLAYER_STARTABLE.map { |id| corporation_by_id(id) }.select do |c|
-            c.presidents_share.owner == c && player.cash >= min * 2 && control_ok?(player, c, c.presidents_share.percent)
+            c.presidents_share.owner == c && !c.retired && player.cash >= min * 2 &&
+              control_ok?(player, c, c.presidents_share.percent)
           end
         end
 
@@ -968,6 +971,8 @@ module Engine
           place_pending_markers
           G1887::Round::Operating.new(self, [
             G1887::Step::FinancialTurn,
+            G1887::Step::MergeChoices,
+            G1887::Step::MergeTokens,
             G1887::Step::Bankrupt,
             G1887::Step::Exchange,
             G1887::Step::SpecialTrack,

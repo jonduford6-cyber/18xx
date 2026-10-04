@@ -11,7 +11,8 @@ module Engine
         # (11.3, 11.3.3): first it may sell certificates it holds in other
         # companies (11.3.2), then one action: Buy one certificate, Start a
         # company, Redeem one of its own certificates, Reissue certificates
-        # from its own treasury (11.3.1), or Pass. Merge is not built yet.
+        # from its own treasury (11.3.1), Merge two companies (11.3.4), or
+        # Pass.
         #
         # Start is offered as a 'bid' (the amount paid), which makes the
         # site show its auction screen: the startable companies as cards,
@@ -30,7 +31,8 @@ module Engine
             return [] unless entity == current_entity
             return %w[choose] unless @game.forced_corporation_sales(entity).empty?
             return %w[bid pass] if @start_chosen
-            return %w[choose pass] if !buy_options(entity).empty? || !other_options(entity).empty?
+            return %w[choose pass] if !buy_options(entity).empty? || !other_options(entity).empty? ||
+                                      !@game.merge_options(entity).empty?
 
             available.empty? ? %w[pass] : %w[bid pass]
           end
@@ -230,14 +232,16 @@ module Engine
             unless available.empty?
               list['start'] = @game.finance_house?(entity) ? 'Start a Construction Company' : 'Start a Railway'
             end
-            list.merge(other_options(entity).reject { |o| o[:choice].start_with?('sell:') }.to_h { |o| [o[:choice], o[:label]] })
+            list.merge!(other_options(entity).reject { |o| o[:choice].start_with?('sell:') }.to_h { |o| [o[:choice], o[:label]] })
+            list.merge(@game.merge_options(entity).to_h { |choice, label, _, _| [choice, label] })
           end
 
           # The company's name once Sell, Redeem or Reissue is offered; the
           # older headings otherwise
           def choice_name
             entity = current_entity
-            return entity.name if !other_options(entity).empty? || !@game.forced_corporation_sales(entity).empty?
+            return entity.name if !other_options(entity).empty? || !@game.forced_corporation_sales(entity).empty? ||
+                                  !@game.merge_options(entity).empty?
 
             available.empty? ? 'Buy' : 'Buy or Start'
           end
@@ -245,7 +249,8 @@ module Engine
           # Cards of the corporations offered, below the buyer's own card
           def show_other
             entity = current_entity
-            (buy_options(entity) + other_options(entity)).map { |o| o[:share].corporation }.uniq - [entity]
+            ((buy_options(entity) + other_options(entity)).map { |o| o[:share].corporation } +
+             @game.merge_options(entity).flat_map { |_, _, s, r| [s, r] }).uniq - [entity]
           end
 
           def process_choose(action)
@@ -275,6 +280,14 @@ module Engine
                 @game.issue_shares(entity, @game.reissuable_shares(entity).first(arg.to_i))
               end
               return pass!
+            end
+
+            if kind == 'merge'
+              option = @game.merge_options(entity).find { |choice, _, _, _| choice == action.choice }
+              raise GameError, "#{entity.name} cannot make that merge now" unless option
+
+              @game.perform_merge!(entity, option[2], option[3])
+              return pass! # the turn's action; no pass penalty
             end
 
             if action.choice == 'start'

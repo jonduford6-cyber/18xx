@@ -10,10 +10,24 @@ module Engine
         # certificates are in the bank pool, sold at par, paid to the bank
         attr_accessor :founding
 
+        # 11.3.4: the charter retired by a merge (out of the game for now)
+        attr_reader :retired
+
         def floated?
-          return false if @founding
+          return false if @founding || @retired
 
           super
+        end
+
+        def retire!
+          @retired = true
+          @floated = false
+          @ipoed = false
+          @share_price = nil
+          @par_price = nil
+          @trains = []
+          @companies = []
+          @cash = 0
         end
 
         # 10.5: after the founding payment, Treasury certificates sell at the

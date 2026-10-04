@@ -126,6 +126,9 @@ module Engine
             raise GameError, 'The Confidence Track cannot be pulled back now' unless @game.confidence_pull_back_allowed?(entity)
 
             @game.pull_back_confidence!(entity)
+            # an action: it returns a held priority card
+            @round.last_to_act = entity
+            @round.current_actions << action
           end
 
           # Presidency after a purchase follows 1887's own rule (players,

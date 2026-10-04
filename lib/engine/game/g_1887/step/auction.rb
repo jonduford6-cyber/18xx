@@ -44,6 +44,7 @@ module Engine
 
             first = entities[@game.rand % entities.size]
             @log << "#{first.name} is the first auctioneer"
+            @game.first_auctioneer = first
             @round.goto_entity!(first)
           end
 

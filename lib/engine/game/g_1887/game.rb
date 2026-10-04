@@ -877,10 +877,30 @@ module Engine
           [['Price', 'Stack, top to bottom'], *rows]
         end
 
-        # First Stock Round: least cash first, seating order breaks ties
+        # Priority cards, as in The Old Prince 1871 (9, 10, 10.4): a player
+        # who passes takes the lowest card no one else holds; acting returns
+        # it and the others keep their order; the round ends when everyone
+        # holds a card, and the next Stock Round follows the cards
+        NEXT_SR_PLAYER_ORDER = :first_to_pass
+
+        attr_accessor :first_auctioneer
+
+        # First Stock Round: least cash first; ties by the auction order (the
+        # first auctioneer, then clockwise)
         def reorder_players(order = nil, **kwargs)
-          order ||= :least_cash if @round.is_a?(Engine::Round::Auction)
+          if @round.is_a?(Engine::Round::Auction)
+            order ||= :least_cash
+            @players.rotate!(@players.index(@first_auctioneer)) if @players.include?(@first_auctioneer)
+          end
           super(order, **kwargs)
+        end
+
+        # Card 1: in a Stock Round its holder for the next round (nobody until
+        # someone passes), otherwise the player who goes first
+        def priority_deal_player
+          return @round.pass_order.first if @round.is_a?(Engine::Round::Stock)
+
+          @players.reject(&:bankrupt).first
         end
 
         # Charter private => the Finance House it floats

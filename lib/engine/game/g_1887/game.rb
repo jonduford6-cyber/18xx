@@ -7,6 +7,7 @@ require_relative 'corporation'
 require_relative 'lombard'
 require_relative 'share_pool'
 require_relative 'round/operating'
+require_relative 'round/merger'
 require_relative 'merge'
 require_relative '../base'
 
@@ -487,6 +488,12 @@ module Engine
         SEED_RAILWAYS = %w[SFW BBNW ANW BAP].freeze
 
         def setup
+          # A safety net behind the creation form's MUTEX_RULES (an imported
+          # or hand-made game could still carry both)
+          if optional_rules.include?(:contested_merger) && optional_rules.include?(:purchase_of_control)
+            raise GameError, 'Choose at most one merger style: Contested merger or Purchase of control, not both'
+          end
+
           super
           deal_seed_certificates
           deal_corporate_seeds
@@ -1029,6 +1036,42 @@ module Engine
                     "#{format_currency(company.par_price.price)}"
           end
           @pending_markers = []
+        end
+
+        # The merger style chosen at creation: :friendly (the default Merge
+        # action), :contested (a Merger Round with a vote) or :control (a
+        # Merger Round with an auction for control)
+        def merge_style
+          return :contested if optional_rules.include?(:contested_merger)
+          return :control if optional_rules.include?(:purchase_of_control)
+
+          :friendly
+        end
+
+        # With a merger variant, a Merger Round follows each Operating Round
+        # set, before the next Stock Round
+        def next_round!
+          if @round.is_a?(G1887::Round::Merger)
+            @round = new_stock_round
+            return
+          end
+          return super if merge_style == :friendly || !@round.is_a?(Engine::Round::Operating) ||
+                          @round.round_num < @operating_rounds
+
+          @turn += 1
+          or_round_finished
+          or_set_finished
+          @round = merger_round
+        end
+
+        def merger_round
+          G1887::Round::Merger.new(self, [
+            G1887::Step::MergeChoices,
+            G1887::Step::MergeTokens,
+            G1887::Step::DiscardTrain,
+            G1887::Step::MergeVote,
+            G1887::Step::MergeProposal,
+          ])
         end
 
         def operating_round(round_num)

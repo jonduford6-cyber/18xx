@@ -68,6 +68,8 @@ module Engine
         # Merge buttons: [choice, label, survivor, retired], only for merges
         # in which someone would reach the president threshold
         def merge_options(proposer)
+          return [] unless merge_style == :friendly # a variant replaces the Merge action
+
           merge_pairs(proposer).flat_map do |a, b|
             survivors = merge_survivors(a, b)
             survivors.filter_map do |survivor|
@@ -78,6 +80,110 @@ module Engine
               label += " (#{survivor.name} stays)" if survivors.size > 1
               ["merge:#{survivor.id}:#{retired.id}", label, survivor, retired]
             end
+          end
+        end
+
+        # ---- Merger Round (the merger variants) ----
+
+        # The holders a player answers for: himself, the corporations at the
+        # top of whose chain he is, and Lombard Street if he owns it
+        def player_holders(player)
+          [player] + @corporations.select { |c| !c.closed? && top_player(c) == player } +
+            (lombard&.owner == player ? [lombard] : [])
+        end
+
+        # A player's units in two companies (not counting a company's own
+        # treasury)
+        def player_units(player, a, b)
+          player_holders(player).sum do |h|
+            (h == a ? 0 : units_of(h, a)) + (h == b ? 0 : units_of(h, b))
+          end
+        end
+
+        # Same-tier pairs that may be put to a Merger Round: both have
+        # operated, neither has merged this round, the pair has not been
+        # rejected this round
+        def merger_round_pairs
+          merged = @round.respond_to?(:merged) ? @round.merged : []
+          rejected = @round.respond_to?(:rejected) ? @round.rejected : []
+          @corporations.select { |c| merge_ready?(c) && !merged.include?(c) }
+                       .group_by { |c| tier(c) }.values
+                       .flat_map { |list| list.combination(2).to_a }
+                       .reject { |a, b| rejected.any? { |pair| pair.sort_by(&:name) == [a, b].sort_by(&:name) } }
+        end
+
+        # [choice, label, survivor, retired] for the player's proposals
+        def proposal_options(player, verb)
+          merger_round_pairs.flat_map do |a, b|
+            next [] unless proposal_allowed?(player, a, b)
+
+            survivors = merge_survivors(a, b)
+            survivors.filter_map do |survivor|
+              retired = survivor == a ? b : a
+              next if merge_style == :contested && !merge_plan(player, survivor, retired)[:president]
+
+              label = "#{verb} #{a.name}+#{b.name}"
+              label += " (#{survivor.name} stays)" if survivors.size > 1
+              ["propose:#{survivor.id}:#{retired.id}", label, survivor, retired]
+            end
+          end
+        end
+
+        def proposal_allowed?(player, a, b)
+          player_units(player, a, b).positive?
+        end
+
+        # Voting blocks, clockwise from the proposer: each player's own
+        # units, then each corporation he answers for (cast by him), then
+        # Lombard Street if he owns it. A company's own treasury and the
+        # bank pool do not vote here.
+        def vote_blocks(proposer, a, b)
+          @players.rotate(@players.index(proposer)).flat_map do |player|
+            player_holders(player).filter_map do |h|
+              n = (h == a ? 0 : units_of(h, a)) + (h == b ? 0 : units_of(h, b))
+              [player, h, n] if n.positive?
+            end
+          end
+        end
+
+        # The bank pool votes yes if its units would become certificates of
+        # higher total value, no if lower, and abstains if equal
+        def pool_vote(survivor, retired)
+          units = merge_units(share_pool, survivor, retired)
+          return [nil, 0] if units.zero?
+
+          before = (units_of(share_pool, survivor) * survivor.share_price.price) +
+                   (units_of(share_pool, retired) * retired.share_price.price)
+          after = units.div(2) * merge_price(survivor, retired).price
+          return [:yes, units] if after > before
+          return [:no, units] if after < before
+
+          [:abstain, units]
+        end
+
+        # Contested merger: after the last block, the pool votes; more yes
+        # than no passes and the merger happens at once (the proposing player
+        # first in the pairing order); otherwise the pair is rejected for
+        # this round
+        def decide_vote!
+          proposal = @round.proposal
+          survivor = proposal[:survivor]
+          retired = proposal[:retired]
+          yes = @round.votes_yes
+          no = @round.votes_no
+          pool, pool_votes = pool_vote(survivor, retired)
+          yes += pool_votes if pool == :yes
+          no += pool_votes if pool == :no
+          passed = yes > no
+          pool_text = pool ? "pool: #{pool}" : 'pool: none'
+          @log << "-- Vote on #{survivor.name}+#{retired.name}: #{yes} yes, #{no} no (#{pool_text}): " \
+                  "#{passed ? 'passed' : 'failed'} --"
+          @round.proposal = nil
+          if passed
+            @round.merged.concat([survivor, retired])
+            perform_merge!(proposal[:proposer], survivor, retired)
+          else
+            @round.rejected << [survivor, retired]
           end
         end
 

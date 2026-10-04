@@ -26,7 +26,22 @@ module Engine
             short_name: 'No bank pool limit',
             desc: 'Sales and Issues may put any share of a company into the bank pool, not only up to 50%.',
           },
+          {
+            sym: :contested_merger,
+            short_name: 'Contested merger',
+            desc: 'Mergers are proposed in a Merger Round after each Operating Round set and decided by a vote of the ' \
+                  'shareholders, instead of the friendly merger. Not with Purchase of control.',
+          },
+          {
+            sym: :purchase_of_control,
+            short_name: 'Purchase of control',
+            desc: 'Mergers are announced in a Merger Round after each Operating Round set and decided by an auction for ' \
+                  'control, instead of the friendly merger. Not with Contested merger.',
+          },
         ].freeze
+
+        # At most one merger style (the site's creation form unticks the other)
+        MUTEX_RULES = [%i[contested_merger purchase_of_control]].freeze
       end
     end
   end

@@ -2,7 +2,6 @@
 
 require_relative '../../../step/bankrupt'
 require_relative '../../../step/buy_train'
-require_relative '../../../step/discard_train'
 require_relative '../../../step/dividend'
 require_relative '../../../step/exchange'
 require_relative '../../../step/route'
@@ -22,7 +21,7 @@ module Engine
           end
         end
 
-        %i[DiscardTrain Exchange
+        %i[Exchange
            Route SpecialTrack Token Track].each do |name|
           const_set(name, Class.new(Engine::Step.const_get(name)) { include RailwayOnly })
         end

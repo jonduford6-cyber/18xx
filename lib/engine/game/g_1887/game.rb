@@ -102,6 +102,9 @@ module Engine
           confidence: 'The Confidence Track reached its final space',
         ).freeze
 
+        # A train discarded over the limit is removed from the game (as in 1871)
+        DISCARDED_TRAINS = :remove
+
         PHASES = [
           {
             name: '2',

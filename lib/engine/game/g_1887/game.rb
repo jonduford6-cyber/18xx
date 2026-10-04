@@ -1070,6 +1070,7 @@ module Engine
             G1887::Step::MergeTokens,
             G1887::Step::DiscardTrain,
             G1887::Step::MergeVote,
+            G1887::Step::MergeAuction,
             G1887::Step::MergeProposal,
           ])
         end

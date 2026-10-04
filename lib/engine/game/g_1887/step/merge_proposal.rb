@@ -29,7 +29,7 @@ module Engine
           end
 
           def options(entity)
-            @game.proposal_options(entity, 'Propose')
+            @game.proposal_options(entity, @game.merge_style == :control ? 'Announce' : 'Propose')
           end
 
           def choice_name
@@ -48,8 +48,32 @@ module Engine
             player.unpass!
             _, _, survivor, retired = option
             @round.proposal = { proposer: player, survivor: survivor, retired: retired }
-            start_vote(player, survivor, retired)
+            if @game.merge_style == :control
+              start_auction(player, survivor, retired)
+            else
+              start_vote(player, survivor, retired)
+            end
             pass! # the proposal is the player's turn
+          end
+
+          # Purchase of control: the announcer first, then the other eligible
+          # players clockwise
+          def start_auction(player, survivor, retired)
+            min = @game.control_min_bid(survivor, retired)
+            @log << "#{player.name} announces the merger of #{survivor.name} and #{retired.name} " \
+                    "(#{survivor.name} keeps its charter); minimum bid #{@game.format_currency(min)}"
+            bidders = @game.players.rotate(@game.players.index(player)).select do |p|
+              p == player || @game.control_eligible?(p, survivor, retired, min)
+            end
+            @round.auction = {
+              announcer: player,
+              survivor: survivor,
+              retired: retired,
+              min: min,
+              high_bid: nil,
+              high_bidder: nil,
+              bidders: bidders,
+            }
           end
 
           def start_vote(player, survivor, retired)

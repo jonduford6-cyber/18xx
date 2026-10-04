@@ -121,6 +121,7 @@ module Engine
             survivors.filter_map do |survivor|
               retired = survivor == a ? b : a
               next if merge_style == :contested && !merge_plan(player, survivor, retired)[:president]
+              next if merge_style == :control && !control_eligible?(player, survivor, retired)
 
               label = "#{verb} #{a.name}+#{b.name}"
               label += " (#{survivor.name} stays)" if survivors.size > 1
@@ -130,7 +131,9 @@ module Engine
         end
 
         def proposal_allowed?(player, a, b)
-          player_units(player, a, b).positive?
+          return player_units(player, a, b).positive? if merge_style == :contested
+
+          merge_survivors(a, b).any? { |s| control_eligible?(player, s, s == a ? b : a) }
         end
 
         # Voting blocks, clockwise from the proposer: each player's own
@@ -187,6 +190,89 @@ module Engine
           end
         end
 
+        # ---- Purchase of control ----
+
+        # Half the market value of the units held by players, corporations
+        # and Lombard Street (not a company's own treasury, not the pool), in
+        # $5 steps (rounded up)
+        def control_min_bid(a, b)
+          value = [a, b].sum do |c|
+            (@players + @corporations + [lombard].compact).sum { |h| h == c ? 0 : units_of(h, c) } * c.share_price.price
+          end
+          half = (value + 1).div(2)
+          half + ((5 - (half % 5)) % 5)
+        end
+
+        # The units a winner would hold: his own pairs, at least the
+        # president's certificate (2 units). The missing units come from the
+        # certificates the pairing leaves unissued: first the merged
+        # company's own treasury, then those nobody receives (the pool).
+        # nil if there are not enough.
+        def control_winner_units(player, survivor, retired)
+          plan = merge_plan(player, survivor, retired)
+          own = merge_units(player, survivor, retired).div(2)
+          missing = [2 - own, 0].max
+          others = plan[:rows].sum { |h, u| h == player ? 0 : u.div(2) }
+          kept = plan[:treasury].div(2) + (plan[:treasury] % 2)
+          ordinary = (tier(survivor) == 2 ? 10 : 5) - 2
+          left = ordinary - others - [own - 2, 0].max # ordinary certificates not given to holders
+          left - (kept - [missing, kept].min) >= 0 ? [own, 2].max : nil
+        end
+
+        # Who may announce or bid: enough cash for the minimum bid + $5, the
+        # certificate limit and the 60% control limit kept after winning, and
+        # enough unissued certificates for his president's certificate
+        def control_eligible?(player, survivor, retired, min = control_min_bid(survivor, retired))
+          return false if player.cash < min + 5
+
+          units = control_winner_units(player, survivor, retired)
+          return false unless units
+
+          certs_now = player.shares.count { |s| [survivor, retired].include?(s.corporation) }
+          return false if num_certs(player) - certs_now + (units - 1) > cert_limit(player)
+
+          others = player_holders(player).reject { |h| h == player || [survivor, retired].include?(h) }
+                                         .sum { |h| merge_units(h, survivor, retired).div(2) }
+          (units + others) * unit_percent(survivor) <= self.class::CONTROL_LIMIT
+        end
+
+        # The winner pays the holders in proportion to their units (players
+        # in cash, corporations and Lombard Street into their treasuries;
+        # not the pool or a company's own treasury); rounded down; the
+        # remainder goes to the merged treasury
+        def control_payments(survivor, retired, amount)
+          holders = (@players + @corporations + [lombard].compact).filter_map do |h|
+            units = (h == survivor ? 0 : units_of(h, survivor)) + (h == retired ? 0 : units_of(h, retired))
+            [h, units] if units.positive?
+          end
+          total = holders.sum(&:last)
+          paid = holders.map { |h, u| [h, (amount * u).div(total), u] }
+          [paid, amount - paid.sum { |_, x, _| x }]
+        end
+
+        def finish_control_auction!
+          auction = @round.auction
+          winner = auction[:high_bidder]
+          amount = auction[:high_bid]
+          survivor = auction[:survivor]
+          retired = auction[:retired]
+          @log << "#{winner.name} wins control for #{format_currency(amount)}; the holders are paid"
+          paid, remainder = control_payments(survivor, retired, amount)
+          paid.each do |holder, x, units|
+            next unless x.positive?
+
+            winner.spend(x, holder) unless holder == winner
+            @log << "#{holder.name} receives #{format_currency(x)} (#{units} unit#{units == 1 ? '' : 's'})"
+          end
+          @round.auction = nil
+          @round.merged.concat([survivor, retired])
+          perform_merge!(winner, survivor, retired, president: winner)
+          return unless remainder.positive?
+
+          winner.spend(remainder, survivor)
+          @log << "#{survivor.name} receives the remainder, #{format_currency(remainder)}"
+        end
+
         # The player at the top of a company's chain (Lombard Street's owner
         # when Lombard Street is at the top)
         def top_player(corporation)
@@ -225,8 +311,10 @@ module Engine
           stock_market.market.flatten.compact.min_by { |sp| [(sp.price - average).abs, sp.price] }
         end
 
-        def perform_merge!(proposer, survivor, retired)
+        def perform_merge!(proposer, survivor, retired, president: nil)
           plan = merge_plan(proposer, survivor, retired)
+          plan[:president] = president if president # Purchase of control: the auction's winner
+          plan[:forced_president] = !president.nil?
           raise GameError, "Nobody would hold #{survivor.name}'s president's certificate" unless plan[:president]
 
           operated = merge_operated_this_round?(survivor) || merge_operated_this_round?(retired)
@@ -286,20 +374,29 @@ module Engine
             end
           end
           ordinary = survivor.shares_of(survivor).reject(&:president)
-          plan[:rows].each do |holder, units|
+          rows = plan[:rows]
+          rows += [[plan[:president], 0]] if plan[:forced_president] && rows.none? { |h, _| h == plan[:president] }
+          missing = 0
+          rows.each do |holder, units|
             count = units.div(2)
-            next if count.zero?
-
             if holder == plan[:president]
               share_pool.transfer_shares(survivor.presidents_share.to_bundle, holder, allow_president_change: false)
               survivor.owner = holder
-              count -= 2
+              missing = [2 - count, 0].max # Purchase of control: made up from the unissued certificates
+              count = [count - 2, 0].max
             end
             ordinary.shift(count).each { |s| share_pool.transfer_shares(s.to_bundle, holder, allow_president_change: false) }
+            next if units.zero?
+
             @log << "#{holder.name} receives #{units.div(2) * unit_percent(survivor)}% of #{survivor.name}" \
                     "#{units.odd? ? ' and has an unpaired certificate' : ''}"
           end
+          plan[:missing] = missing
           @log << "#{plan[:president].name} becomes the president of #{survivor.name}"
+          return unless missing.positive?
+
+          @log << "#{plan[:president].name} receives #{missing * unit_percent(survivor)}% more of #{survivor.name} " \
+                  "from its unissued certificates to make up the president's certificate"
         end
 
         # Railways: the standard token merger (as 1828, 1867): where both have
@@ -352,6 +449,7 @@ module Engine
           # treasury keeps only its own pairs and its unpaired unit); unpaired
           # holders who buy take theirs from there
           kept = plan[:treasury].div(2) + (plan[:treasury] % 2)
+          kept -= [plan[:missing].to_i, kept].min # Purchase of control: the winner's missing units, treasury first
           spare = survivor.shares_of(survivor).reject(&:president).drop(kept)
           spare.each { |s| share_pool.transfer_shares(s.to_bundle, share_pool, allow_president_change: false) }
           @log << "#{spare.sum(&:percent)}% of #{survivor.name} that nobody received goes to the bank pool" unless spare.empty?

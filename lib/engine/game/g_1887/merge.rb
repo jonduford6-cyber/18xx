@@ -12,7 +12,7 @@ module Engine
       module Merge
         # Tiers that may merge (2 Railways, 1 Construction Companies,
         # 0 Finance Houses)
-        MERGE_TIERS = [2].freeze
+        MERGE_TIERS = [0, 1, 2].freeze
 
         # A Railway's station limit (its charter's tokens)
         STATION_LIMIT = { 'BAGS' => 3, 'BAWR' => 3, 'BBNW' => 3, 'SFW' => 4, 'ANW' => 4, 'BAP' => 3, 'ER' => 3 }.freeze

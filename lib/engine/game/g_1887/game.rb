@@ -110,6 +110,7 @@ module Engine
           {
             name: '3',
             on: '3',
+            status: ['can_buy_companies'],
             train_limit: 4,
             tiles: %i[yellow green],
             operating_rounds: 2,
@@ -117,6 +118,7 @@ module Engine
           {
             name: '4',
             on: '4',
+            status: ['can_buy_companies'],
             train_limit: 3,
             tiles: %i[yellow green],
             operating_rounds: 2,
@@ -124,6 +126,7 @@ module Engine
           {
             name: '5',
             on: '5',
+            status: ['can_buy_companies'],
             train_limit: 3,
             tiles: %i[yellow green brown],
             operating_rounds: 3,
@@ -131,6 +134,7 @@ module Engine
           {
             name: '6',
             on: '6',
+            status: ['can_buy_companies'],
             train_limit: 2,
             tiles: %i[yellow green brown],
             operating_rounds: 3,
@@ -138,6 +142,7 @@ module Engine
           {
             name: 'D',
             on: 'D',
+            status: ['can_buy_companies'],
             train_limit: 2,
             tiles: %i[yellow green brown],
             operating_rounds: 3,
@@ -165,6 +170,20 @@ module Engine
 
           concession.close!
           @log << "#{concession.name} closes"
+        end
+
+        # 14: from phase 3 a Railway's president may sell the Railway one of
+        # these privates, at half to double face value, from their own hand
+        CORPORATE_PURCHASABLE = %w[PLC RSL KG LBDL PFC ELG].freeze
+
+        # The privates the current (or given) Railway may buy: those its
+        # player president owns. A Railway presided over by a corporation or
+        # Lombard Street has no player president, so none.
+        def purchasable_companies(entity = nil)
+          entity ||= @round&.current_entity
+          return [] if !entity&.corporation? || financial?(entity) || !entity.owner&.player?
+
+          entity.owner.companies.select { |c| CORPORATE_PURCHASABLE.include?(c.id) && !c.closed? }
         end
 
         # Section 14, start of phase 5 (the first 5-train)

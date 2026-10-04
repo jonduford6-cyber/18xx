@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require_relative '../../../step/bankrupt'
-require_relative '../../../step/buy_company'
 require_relative '../../../step/buy_train'
 require_relative '../../../step/discard_train'
 require_relative '../../../step/dividend'
@@ -23,7 +22,7 @@ module Engine
           end
         end
 
-        %i[BuyCompany DiscardTrain Exchange
+        %i[DiscardTrain Exchange
            Route SpecialTrack Token Track].each do |name|
           const_set(name, Class.new(Engine::Step.const_get(name)) { include RailwayOnly })
         end

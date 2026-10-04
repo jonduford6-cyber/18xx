@@ -28,6 +28,9 @@ module Engine
             return %w[choose] if entity == current_entity && !forced_options(entity).empty?
 
             acts = super
+            if entity == current_entity && !bought? && !@game.restartable_finance_houses(entity).empty?
+              acts = (acts.empty? ? %w[pass] : acts) - %w[pass] + %w[bid pass]
+            end
             return acts unless choice_available?(entity)
 
             (acts.empty? ? %w[pass] : acts) + %w[choose]
@@ -282,8 +285,59 @@ module Engine
             super
           end
 
-          def ipo_type(_corporation)
-            :par
+          # Part B: a retired Finance House is started again with an amount
+          # (the standard amount box on its card); everything else by par
+          def ipo_type(corporation)
+            corporation.retired && @game.finance_house?(corporation) ? :bid : :par
+          end
+
+          def min_increment
+            5
+          end
+
+          def min_bid(_corporation)
+            @game.class::FINANCE_HOUSE_RESTART_MIN
+          end
+
+          def max_bid(entity, _corporation)
+            entity.cash - (entity.cash % 5)
+          end
+
+          def bid_str(_corporation)
+            'Start'
+          end
+
+          # The player cards and the shared auction screen ask these whenever
+          # a 'bid' is possible: nothing is auctioned here
+          def auctioning; end
+
+          def active_auction; end
+
+          def committed_cash(_player, _show_hidden = false)
+            0
+          end
+
+          # The restart is the player's buy for the turn
+          def bought?
+            super || @round.current_actions.any? { |a| a.is_a?(Action::Bid) }
+          end
+
+          def process_bid(action)
+            entity = action.entity
+            house = action.corporation
+            amount = action.price
+            raise GameError, "#{entity.name} has already bought this turn" if bought?
+            unless @game.restartable_finance_houses(entity).include?(house)
+              raise GameError, "#{entity.name} cannot start #{house&.name} again now"
+            end
+
+            fmt = ->(v) { @game.format_currency(v) }
+            raise GameError, "The amount must be at least #{fmt[min_bid(house)]}" if amount < min_bid(house)
+            raise GameError, "The amount must be a multiple of #{fmt[5]}" unless (amount % 5).zero?
+            raise GameError, "#{entity.name} has only #{fmt[entity.cash]}" if amount > entity.cash
+
+            @game.restart_finance_house!(entity, house, amount)
+            track_action(action, house)
           end
 
           # Par prices for a player starting a company (3.3): par x 2 to pay

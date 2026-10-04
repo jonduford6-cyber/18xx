@@ -13,6 +13,10 @@ module Engine
         # 11.3.4: the charter retired by a merge (out of the game for now)
         attr_reader :retired
 
+        # Part B: a retired charter started again (no subsidy; a Railway
+        # chooses its home station when it floats)
+        attr_reader :restarted
+
         def floated?
           return false if @founding || @retired
 
@@ -39,6 +43,13 @@ module Engine
           @cash = 0
           @operating_history = {}
           reset_tokens! if @tokens.none?(&:used)
+        end
+
+        def restart!
+          @retired = false
+          @restarted = true
+          @capitalization = :incremental # no bank capital at the float (BAGS and BAWR were full)
+          @coordinates = nil unless @token_prices.empty? # a Railway: its home is chosen at the float
         end
 
         def reset_tokens!

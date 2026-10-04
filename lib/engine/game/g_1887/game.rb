@@ -704,6 +704,7 @@ module Engine
 
         def stock_round
           Engine::Round::Stock.new(self, [
+            G1887::Step::HomeToken,
             Engine::Step::DiscardTrain,
             Engine::Step::Exchange,
             Engine::Step::SpecialTrack,
@@ -858,20 +859,76 @@ module Engine
           @stock_market.share_price(@stock_market.left(corporation, sp.coordinates)).price
         end
 
-        # Not yet started: the president's certificate is in its treasury
+        # Not yet started (the president's certificate is in its treasury),
+        # never started or retired by a merge
         def startable_construction_companies
           CONSTRUCTION_COS.map { |id| corporation_by_id(id) }
-            .select { |c| c.presidents_share.owner == c && !c.retired }
+            .select { |c| c.presidents_share.owner == c }
         end
 
         # Railways a Construction Company may start (10.5): the seed
-        # Railways, and Entre Rios from phase 4 (the first 4-train)
+        # Railways, Entre Rios from phase 4 (the first 4-train), and any
+        # retired Railway that has a city it may choose as its home
         def startable_railways
           ids = SEED_RAILWAYS + (@phase.available?('4') ? %w[ER] : [])
-          ids.map { |id| corporation_by_id(id) }.select { |c| c.presidents_share.owner == c && !c.retired }
+          fresh = ids.map { |id| corporation_by_id(id) }.select { |c| c.presidents_share.owner == c && !c.retired }
+          fresh + restartable_railways
         end
 
-        # Started without the bank subsidy
+        # Part B: retired Railways that can start again (their home: any city
+        # with an open station space connected by track to Buenos Aires)
+        def restartable_railways
+          @corporations.select { |c| c.retired && tier(c) == 2 && !home_token_locations(c).empty? }
+        end
+
+        # Part B: retired Finance Houses a player may start again in a Stock
+        # Round (any amount of at least $120, in $5 steps, into its treasury)
+        FINANCE_HOUSE_RESTART_MIN = 120
+
+        def restartable_finance_houses(player)
+          return [] if !player.player? || player.cash < FINANCE_HOUSE_RESTART_MIN
+
+          @corporations.select { |c| c.retired && finance_house?(c) && control_ok?(player, c, c.presidents_share.percent) }
+        end
+
+        # The cities a restarted Railway may choose as its home: an open
+        # station space, connected by track to Buenos Aires (F16)
+        def home_token_locations(corporation)
+          start = hex_by_id('F16')
+          seen = { start => true }
+          queue = [start]
+          until queue.empty?
+            hex = queue.shift
+            hex.tile.exits.each do |edge|
+              other = hex.neighbors[edge]
+              next if !other || seen[other] || !other.tile.exits.include?(hex.invert(edge))
+
+              seen[other] = true
+              queue << other
+            end
+          end
+          seen.keys.select { |h| h.tile.cities.any? { |city| city.tokenable?(corporation, free: true) } }
+        end
+
+        # Part B: a player starts a retired Finance House again: the amount
+        # into its treasury, par the highest not above half, the 40%
+        # president's certificate; it floats at once, no subsidy; the marker
+        # waits for the next Operating Round
+        def restart_finance_house!(player, house, amount)
+          house.restart!
+          par = finance_house_par(amount)
+          @log << "#{player.name} starts #{house.name} again with #{format_currency(amount)} (par " \
+                  "#{format_currency(par.price)}), paid into its treasury; #{player.name} is its president"
+          share_pool.buy_shares(player, house.presidents_share, exchange: :free, allow_president_change: false, silent: true)
+          house.owner = player
+          player.spend(amount, house)
+          house.par_price = par
+          house.ipoed = true
+          (@pending_markers ||= []) << house
+          @log << "#{house.name}'s price marker waits beside the market until the next Operating Round"
+        end
+
+        # Started without the bank subsidy (and every restarted charter)
         NO_SUBSIDY = %w[ER].freeze
 
         # 3.3 / 13.3: companies a player may start in a Stock Round as their
@@ -882,13 +939,16 @@ module Engine
         FOUNDING_CAPITAL = 10 # the bank pays 10 x par at the float
 
         def player_startable(player)
-          return [] if !player.player? || !@phase.available?('4')
+          return [] unless player.player?
 
+          fresh = @phase.available?('4') ? PLAYER_STARTABLE.map { |id| corporation_by_id(id) } : []
+          fresh = fresh.select { |c| c.presidents_share.owner == c && !c.retired }
+          (fresh + restartable_railways).select { |c| player_may_start?(player, c) }
+        end
+
+        def player_may_start?(player, company)
           min = stock_market.par_prices.map(&:price).min
-          PLAYER_STARTABLE.map { |id| corporation_by_id(id) }.select do |c|
-            c.presidents_share.owner == c && !c.retired && player.cash >= min * 2 &&
-              control_ok?(player, c, c.presidents_share.percent)
-          end
+          player.cash >= min * 2 && control_ok?(player, company, company.presidents_share.percent)
         end
 
         # The player pays par x 2 to the bank for the president's
@@ -896,11 +956,13 @@ module Engine
         # par until the company floats; no market price until then
         def player_start(player, company, share_price)
           price = share_price.price * 2
+          company.restart! if company.retired
           company.founding = true
           company.par_price = share_price
           company.share_price = share_price # the founding price; the marker is not on the market
           company.ipoed = true
-          @log << "#{player.name} starts #{company.name} at par #{format_currency(share_price.price)}, paying " \
+          again = company.restarted ? ' again' : ''
+          @log << "#{player.name} starts #{company.name}#{again} at par #{format_currency(share_price.price)}, paying " \
                   "#{format_currency(price)} to the bank for the #{company.presidents_share.percent}% president's certificate"
           share_pool.buy_shares(player, company.presidents_share, exchange: :free, allow_president_change: false, silent: true)
           player.spend(price, @bank)
@@ -942,12 +1004,13 @@ module Engine
         # waits beside the market until the next Operating Round (11.1), so
         # the new company cannot operate, or be traded, before then.
         def start_company(starter, company, amount, payers: [[starter, amount]])
+          company.restart! if company.retired
           par = finance_house_par(amount)
-          @log << "#{starter.name} starts #{company.name} with " \
+          @log << "#{starter.name} starts #{company.name}#{company.restarted ? ' again' : ''} with " \
                   "#{format_currency(amount)} (par #{format_currency(par.price)})"
           share_pool.buy_shares(starter, company.presidents_share, exchange: :free)
           payers.each { |payer, pay| payer.spend(pay, company) if pay.positive? }
-          unless NO_SUBSIDY.include?(company.id)
+          if !NO_SUBSIDY.include?(company.id) && !company.restarted
             @bank.spend(par.price, company)
             @log << "bank pays #{company.name} subsidy #{format_currency(par.price)}"
           end
@@ -955,6 +1018,7 @@ module Engine
           (@pending_markers ||= []) << company
           @log << "#{company.name}'s price marker waits beside the market " \
                   'until the next Operating Round'
+          place_home_token(company) if company.restarted && tier(company) == 2 # its president chooses the home now
         end
 
         # Pending markers go on the market at par, on the bottom of the stack
@@ -970,6 +1034,7 @@ module Engine
         def operating_round(round_num)
           place_pending_markers
           G1887::Round::Operating.new(self, [
+            G1887::Step::HomeToken,
             G1887::Step::FinancialTurn,
             G1887::Step::MergeChoices,
             G1887::Step::MergeTokens,

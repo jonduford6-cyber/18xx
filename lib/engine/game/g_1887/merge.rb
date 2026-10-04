@@ -67,8 +67,14 @@ module Engine
 
         # Merge buttons: [choice, label, survivor, retired], only for merges
         # in which someone would reach the president threshold
+        # No merger of any kind before the green phase (the first 3-train)
+        def mergers_allowed?
+          @phase.available?('3')
+        end
+
         def merge_options(proposer)
           return [] unless merge_style == :friendly # a variant replaces the Merge action
+          return [] unless mergers_allowed?
 
           merge_pairs(proposer).flat_map do |a, b|
             survivors = merge_survivors(a, b)
@@ -104,6 +110,8 @@ module Engine
         # operated, neither has merged this round, the pair has not been
         # rejected this round
         def merger_round_pairs
+          return [] unless mergers_allowed?
+
           merged = @round.respond_to?(:merged) ? @round.merged : []
           rejected = @round.respond_to?(:rejected) ? @round.rejected : []
           @corporations.select { |c| merge_ready?(c) && !merged.include?(c) }

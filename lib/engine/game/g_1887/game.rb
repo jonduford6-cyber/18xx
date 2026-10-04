@@ -1056,7 +1056,7 @@ module Engine
             return
           end
           return super if merge_style == :friendly || !@round.is_a?(Engine::Round::Operating) ||
-                          @round.round_num < @operating_rounds
+                          @round.round_num < @operating_rounds || !mergers_allowed? # before green: no Merger Round
 
           @turn += 1
           or_round_finished

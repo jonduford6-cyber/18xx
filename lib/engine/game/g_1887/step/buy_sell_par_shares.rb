@@ -73,15 +73,13 @@ module Engine
             end
           end
 
-          # 10.4: one exchange per turn; it is not the turn's buy
+          # 5.9: any number of exchanges in a turn; an exchange is not the
+          # turn's buy, and is never refused for a limit (the player sells
+          # down at the next turn)
           def exchange_options(entity)
-            return [] if exchanged_this_turn? || @game.held_back_bawr.empty?
+            return [] if @game.held_back_bawr.empty?
 
             @game.exchange_privates(entity)
-          end
-
-          def exchanged_this_turn?
-            @round.current_actions.any? { |a| a.is_a?(Action::Choose) && a.choice.to_s.start_with?('exchange') }
           end
 
           def choice_name

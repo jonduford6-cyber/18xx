@@ -506,6 +506,7 @@ module Engine
           @seating = @players.map(&:id)
           deal_seed_certificates
           deal_corporate_seeds
+          name_charter_seeds
           PREFLOATED.each { |id, price| prefloat(corporation_by_id(id), price) }
           seed_lombard
         end
@@ -642,6 +643,24 @@ module Engine
         def deal_corporate_seeds
           deal_to_corporations(FINANCE_HOUSES, CONSTRUCTION_COS)
           deal_to_corporations(CONSTRUCTION_COS, SEED_RAILWAYS)
+        end
+
+        # Each Charter card names the Construction Company seed share its
+        # Finance House really holds (dealt at random, so the text is made
+        # after the deal)
+        def name_charter_seeds
+          CHARTERS.each do |sym, fh_id|
+            fh = corporation_by_id(fh_id)
+            cc = fh.shares.map(&:corporation).find { |c| CONSTRUCTION_COS.include?(c.id) }
+            next unless cc
+
+            plain = ->(c) { c.full_name.sub(/ \((FH|CC)\)\z/, '') }
+            company_by_id(sym).desc =
+              "40% president's certificate for #{plain.call(fh)}. Purchasing this floats #{plain.call(fh)}; the winning " \
+              "bid is paid into its treasury, and the buyer sets its par value. #{plain.call(fh)} itself holds a 20% seed " \
+              "share in #{plain.call(cc)} (#{cc.name}). It belongs to the Finance House, not to the buyer. " \
+              'Closes upon receipt of charter.'
+          end
         end
 
         def deal_to_corporations(holder_ids, target_ids)

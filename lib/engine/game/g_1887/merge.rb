@@ -120,7 +120,8 @@ module Engine
           @corporations.select { |c| merge_ready?(c) && !merged.include?(c) }
                        .group_by { |c| tier(c) }.values
                        .flat_map { |list| list.combination(2).to_a }
-                       .reject { |a, b| rejected.any? { |pair| pair.sort_by(&:name) == [a, b].sort_by(&:name) } }
+                       # (one parameter: in the browser's Ruby, reject does not split a pair into a and b)
+                       .reject { |pair| rejected.any? { |done| done.map(&:name).sort == pair.map(&:name).sort } }
         end
 
         # [choice, label, survivor, retired] for the player's proposals

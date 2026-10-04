@@ -936,8 +936,9 @@ module Engine
           fresh + restartable_railways
         end
 
-        # Part B: retired Railways that can start again (their home: any city
-        # with an open station space connected by track to Buenos Aires)
+        # Part B: retired Railways that can start again (their home, chosen and
+        # placed at the start: any city with an open station space connected by
+        # track to Buenos Aires; none, no start)
         def restartable_railways
           @corporations.select { |c| c.retired && tier(c) == 2 && !home_token_locations(c).empty? }
         end
@@ -1038,6 +1039,9 @@ module Engine
           share_pool.transfer_shares(ShareBundle.new(rest), share_pool, allow_president_change: false)
           @log << "#{ShareBundle.new(rest).percent}% of #{company.name} is placed in the bank pool, at " \
                   "#{format_currency(share_price.price)} each until it floats"
+          # 10.1: a restarted Railway's home city is chosen, and its first token placed, now (so that it holds
+          # the space), not at the float
+          place_home_token(company) if company.restarted && tier(company) == 2
         end
 
         # The card's "% to float", shown only where a company floats by
@@ -1060,7 +1064,7 @@ module Engine
           capital = company.par_price.price * FOUNDING_CAPITAL
           @bank.spend(capital, company)
           @log << "#{company.name} floats (60% sold); the bank pays #{format_currency(capital)} into its treasury"
-          place_home_token(company)
+          place_home_token(company) unless company.restarted # a restarted Railway placed its token at the start
           (@pending_markers ||= []) << company
           @log << "#{company.name}'s price marker waits beside the market until the next Operating Round"
         end

@@ -49,7 +49,7 @@ module Engine
           @retired = false
           @restarted = true
           @capitalization = :incremental # no bank capital at the float (BAGS and BAWR were full)
-          @coordinates = nil unless @token_prices.empty? # a Railway: its home is chosen at the float
+          @coordinates = nil unless @token_prices.empty? # a Railway: its home is chosen at the start
         end
 
         def reset_tokens!

@@ -85,6 +85,8 @@ module Engine
                                'Robert Stephenson & Co. Locomotive Order, Henderson Transfer, La Porteña Works, ' \
                                'Anderson Paz Purchase Agreement, La Boca Docks Lease and Estancia Land Grant close ' \
                                '(Estancia pays its owner $50); Parana Ferry Company stays open but pays no income'],
+          'kilometric_clawback' => ['Kilometric Guarantee closes',
+                                    'A Railway owning it pays the bank $15 per station token'],
           'diesel_bought' => ['Game end',
                               'The first Diesel ends the game after this Operating Round set, ' \
                               'one final Stock Round and one final Operating Round set'],
@@ -154,7 +156,7 @@ module Engine
           { name: '3', distance: 3, price: 150, rusts_on: '5', num: 5 },
           { name: '4', distance: 4, price: 250, rusts_on: '6', num: 3 },
           { name: '5', distance: 5, price: 400, rusts_on: 'D', num: 3, events: [{ 'type' => 'close_privates' }] },
-          { name: '6', distance: 6, price: 500, num: 3 },
+          { name: '6', distance: 6, price: 500, num: 3, events: [{ 'type' => 'kilometric_clawback' }] },
           { name: 'D', distance: 999, price: 700, num: 'unlimited', events: [{ 'type' => 'diesel_bought' }] },
         ].freeze
 
@@ -184,6 +186,66 @@ module Engine
           return [] if !entity&.corporation? || financial?(entity) || !entity.owner&.player?
 
           entity.owner.companies.select { |c| CORPORATE_PURCHASABLE.include?(c.id) && !c.closed? }
+        end
+
+        # 14, Robert Stephenson & Co. Locomotive Order: its owner (a player
+        # or a Railway) receives 10% of the price of the first train bought
+        # from the depot in each Operating Round set. It closes with the
+        # first 5-train before paying for it.
+        def stephenson_pays!(buyer, train, price)
+          rsl = company_by_id('RSL')
+          return if !rsl || rsl.closed? || !rsl.owner || @stephenson_paid_turn == @turn
+
+          @stephenson_paid_turn = @turn
+          amount = price / 10
+          @bank.spend(amount, rsl.owner)
+          @log << "#{rsl.owner.name} receives #{format_currency(amount)} from #{rsl.name} " \
+                  "(10% of #{buyer.name}'s #{train.name}-train)"
+        end
+
+        # 14, Kilometric Guarantee: nothing while a player owns it. A Railway
+        # owning it receives, at the start of each Operating Round, $15 per
+        # station token it has on the map ($7 from phase 5). At phase 6 the
+        # Railway pays the bank $15 per token (all its cash if short) and the
+        # private closes.
+        KILOMETRIC = 15
+        KILOMETRIC_LATE = 7
+
+        def placed_tokens(corporation)
+          corporation.tokens.count { |t| t.used && t.city }
+        end
+
+        def payout_companies(ignore: [])
+          super
+          kg = company_by_id('KG')
+          railway = kg&.owner
+          return if !railway&.corporation? || kg.closed?
+
+          tokens = placed_tokens(railway)
+          per = %w[5 6 D].include?(@phase.name) ? KILOMETRIC_LATE : KILOMETRIC
+          return if tokens.zero?
+
+          @bank.spend(per * tokens, railway)
+          @log << "#{railway.name} receives #{format_currency(per * tokens)} from #{kg.name} " \
+                  "(#{tokens} station token#{tokens == 1 ? '' : 's'} x #{format_currency(per)})"
+        end
+
+        def event_kilometric_clawback!
+          kg = company_by_id('KG')
+          return if !kg || kg.closed?
+
+          railway = kg.owner
+          if railway&.corporation?
+            tokens = placed_tokens(railway)
+            due = KILOMETRIC * tokens
+            paid = [due, railway.cash].min
+            railway.spend(paid, @bank) if paid.positive?
+            short = paid < due ? ", all its cash; #{format_currency(due)} due" : ''
+            @log << "#{railway.name} pays the bank #{format_currency(paid)} for #{kg.name} " \
+                    "(#{tokens} station token#{tokens == 1 ? '' : 's'} x #{format_currency(KILOMETRIC)}#{short})"
+          end
+          kg.close!
+          @log << "#{kg.name} closes"
         end
 
         # Section 14, start of phase 5 (the first 5-train)

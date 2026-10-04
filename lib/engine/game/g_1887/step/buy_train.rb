@@ -284,6 +284,7 @@ module Engine
           # player contributes what its treasury lacks, with no cap
           def process_buy_train(action)
             railway = action.entity
+            from_depot = action.train.owner == @depot
             settle!(railway)
             need = action.price - railway.cash
             if emergency?(railway) && need.positive?
@@ -298,6 +299,9 @@ module Engine
             raise GameError, "#{railway.name} has only #{@game.format_currency(railway.cash)}" if action.price > railway.cash
 
             super
+            # Robert Stephenson pays after the purchase (and its phase events,
+            # so the first 5-train closes it before it pays)
+            @game.stephenson_pays!(railway, action.train, action.price) if from_depot
           end
         end
       end

@@ -20,9 +20,7 @@ module Engine
             unless @game.purchasable_companies(entity).include?(company)
               raise GameError, "#{entity.name} cannot buy #{company.name}"
             end
-            if action.price > entity.cash
-              raise GameError, "#{entity.name} has only #{@game.format_currency(entity.cash)}"
-            end
+            raise GameError, "#{entity.name} has only #{@game.format_currency(entity.cash)}" if action.price > entity.cash
 
             super
           end

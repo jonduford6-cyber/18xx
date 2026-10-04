@@ -267,7 +267,14 @@ module Engine
 
               @game.sell_bundle(shares)
               @sold = true
-              return
+              return if forced.empty?
+
+              # 5.6: a required sale is the only action of the turn (no
+              # penalty); several required sales are all made first
+              return unless @game.forced_corporation_sales(entity).empty?
+
+              @log << "#{entity.name}'s required sale is its only action this turn"
+              return pass!
             end
             if %w[redeem reissue].include?(kind)
               option = other_options(entity).find { |o| o[:choice] == action.choice }

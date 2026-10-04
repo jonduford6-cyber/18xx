@@ -38,6 +38,11 @@ module Engine
 
         CERT_LIMIT = { 3 => 20, 4 => 16 }.freeze
 
+        # 5.3 / 5.4: selling is allowed in every Stock Round, the first one
+        # included; a turn is sell, buy one certificate, then sell again
+        SELL_AFTER = :any_time
+        SELL_BUY_ORDER = :sell_buy_sell
+
         STARTING_CASH = { 3 => 700, 4 => 520 }.freeze
 
         # The top-right cell (516) is marked 'e': reaching it ends the game.
@@ -996,6 +1001,7 @@ module Engine
           return if !company.founding || share_pool.percent_of(company) > FOUNDING_FLOAT_POOL
 
           company.founding = false
+          company.share_price = nil # 5.1: no market price until the marker is placed
           capital = company.par_price.price * FOUNDING_CAPITAL
           @bank.spend(capital, company)
           @log << "#{company.name} floats (60% sold); the bank pays #{format_currency(capital)} into its treasury"
@@ -1117,6 +1123,14 @@ module Engine
         # it and the others keep their order; the round ends when everyone
         # holds a card, and the next Stock Round follows the cards
         NEXT_SR_PLAYER_ORDER = :first_to_pass
+
+        # 5.10: sold out when every certificate is held by players,
+        # corporations or Lombard Street: none in the bank pool and none in
+        # the company's own Treasury (the held-back BAWR certificates
+        # included)
+        def sold_out?(corporation)
+          share_pool.percent_of(corporation).zero? && corporation.percent_of(corporation).zero?
+        end
 
         attr_accessor :first_auctioneer
 
@@ -1337,7 +1351,9 @@ module Engine
 
         def after_end_of_operating_turn(operator)
           super
-          (@completed_operating_turns ||= []) << operator if operator.corporation? && !completed_operating_turn?(operator)
+          return if !operator.corporation? || operator.retired || completed_operating_turn?(operator)
+
+          (@completed_operating_turns ||= []) << operator
         end
 
         # The bundle a holder must sell of a company because its actor's

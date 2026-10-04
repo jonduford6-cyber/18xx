@@ -276,8 +276,18 @@ module Engine
             @game.forced_player_sales(entity)
           end
 
+          # Every sale is checked: 1887 has no partial swap of a president's
+          # certificate (the shared code would skip the check for one)
+          def sell_shares(entity, shares, swap: nil)
+            raise GameError, "Cannot sell shares of #{shares.corporation.name}" if swap || !can_sell?(entity, shares)
+
+            super(entity, shares)
+          end
+
           def can_sell?(entity, bundle)
             return false if bundle.corporation.founding # nobody sells before it floats
+            return false unless bundle.corporation.share_price # 5.1: no market price, no sale
+            return false if bundle.presidents_share # 5.4: a president's certificate is never sold
 
             forced = forced_sales(entity)
             return forced.any? { |some| some.map(&:id).sort == bundle.shares.map(&:id).sort } unless forced.empty?

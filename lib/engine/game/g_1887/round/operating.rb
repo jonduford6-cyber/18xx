@@ -44,6 +44,11 @@ module Engine
             @current_operator_acted = true if action.entity.corporation == @current_operator
 
             if active_step
+              # 9.5 / 9.8: the round waits for the unpaired choices and the
+              # token removal of a merge, even when the operating company was
+              # retired by it (a Finance House merged into another)
+              return if merge_pending?
+
               entity = @entities[@entity_index]
               return if @game.controller(entity)&.player? || entity.receivership?
             end
@@ -51,6 +56,12 @@ module Engine
             after_end_of_turn(@current_operator)
 
             next_entity! unless @game.finished
+          end
+
+          def merge_pending?
+            @steps.any? do |step|
+              (step.is_a?(G1887::Step::MergeChoices) || step.is_a?(G1887::Step::MergeTokens)) && step.active?
+            end
           end
         end
       end

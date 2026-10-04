@@ -23,8 +23,9 @@ module Engine
           # Baring & Robertson Credit's pull-back: a button in its owner's
           # turn that is not a buy
           def actions(entity)
-            # 10.6: a sale the control limit requires comes first
-            return %w[sell_shares] if entity == current_entity && entity.player? && !forced_sales(entity).empty?
+            # 10.6 / the certificate limit: a required sale comes first, as
+            # buttons at the top
+            return %w[choose] if entity == current_entity && !forced_options(entity).empty?
 
             acts = super
             return acts unless choice_available?(entity)
@@ -34,7 +35,39 @@ module Engine
 
           def choice_available?(entity)
             entity == current_entity && entity.player? &&
-              (@game.confidence_pull_back_allowed?(entity) || !exchange_options(entity).empty?)
+              (!forced_options(entity).empty? || @game.confidence_pull_back_allowed?(entity) ||
+               !exchange_options(entity).empty?)
+          end
+
+          # Required sales, one button each: the 10.6 sell-down, or any legal
+          # sale while over the certificate limit
+          def forced_options(entity)
+            return [] if !entity.player? || entity != current_entity
+
+            bundles = forced_sales(entity)
+            if bundles.empty? && @game.num_certs(entity) > @game.cert_limit(entity)
+              bundles = entity.shares.map(&:corporation).uniq.flat_map do |c|
+                @game.bundles_for_corporation(entity, c).select { |bb| can_sell?(entity, bb) }.map(&:shares)
+              end
+            end
+            bundles.map do |shares|
+              c = shares.first.corporation
+              price = @game.format_currency(c.share_price.price * shares.sum(&:num_shares))
+              ["forcedsell:#{c.id}:#{shares.map(&:id).join('+')}", "Sell #{shares.sum(&:percent)}% #{c.name} (#{price})", shares]
+            end
+          end
+
+          def choice_explanation
+            entity = current_entity
+            return unless entity&.player?
+
+            if (shares = forced_sales(entity).first)
+              c = shares.first.corporation
+              excess = @game.control_percent(entity, c) - @game.class::CONTROL_LIMIT
+              ["#{entity.name} controls #{@game.control_percent(entity, c)}% of #{c.name} and must sell at least #{excess}%"]
+            elsif !forced_options(entity).empty?
+              ["#{entity.name} holds #{@game.num_certs(entity)} certificates; the limit is #{@game.cert_limit(entity)}"]
+            end
           end
 
           # 10.4: one exchange per turn; it is not the turn's buy
@@ -50,6 +83,7 @@ module Engine
 
           def choice_name
             entity = current_entity
+            return entity.name unless forced_options(entity).empty?
             return 'Confidence Track' if exchange_options(entity).empty?
             return 'BAWR' unless @game.confidence_pull_back_allowed?(entity)
 
@@ -58,6 +92,9 @@ module Engine
 
           def choices
             entity = current_entity
+            forced = forced_options(entity)
+            return forced.to_h { |key, label, _| [key, label] } unless forced.empty?
+
             list = exchange_options(entity).to_h { |c| ["exchange:#{c.id}", "Exchange #{c.name} for 10% BAWR"] }
             if @game.confidence_pull_back_allowed?(entity)
               list['pull_back'] = "Baring & Robertson Credit: pull the track back to space #{@game.confidence - 1}"
@@ -67,6 +104,16 @@ module Engine
 
           def process_choose(action)
             entity = action.entity
+            forced = forced_options(entity)
+            unless forced.empty?
+              option = forced.find { |key, _, _| key == action.choice }
+              raise GameError, "#{entity.name} must first sell: #{forced.map { |_, label, _| label }.join(', ')}" unless option
+
+              bundle = ShareBundle.new(option[2])
+              sell_shares(entity, bundle)
+              track_action(action, bundle.corporation)
+              return
+            end
             kind, id = action.choice.split(':')
             if kind == 'exchange'
               company = exchange_options(entity).find { |c| c.id == id }
@@ -206,19 +253,19 @@ module Engine
           end
 
           # 10.6: while a forced sale is due, only that sale
-          # The standard certificate limit still forces a sale; the 60% limit
-          # follows 10.6 (forced_sales, at the start of the next turn)
-          def must_sell?(entity)
-            return false unless can_sell_any?(entity)
-
-            @game.num_certs(entity) > @game.cert_limit(entity)
+          # Both required sales (10.6 and the certificate limit) are shown as
+          # buttons at the top (forced_options), not the standard way
+          def must_sell?(_entity)
+            false
           end
 
           # 10.6: due at the start of the player's turn (before anything but
           # forced sales); an excess arising mid-turn waits for the next turn
           def forced_sales(entity)
             return [] unless entity.player?
-            return [] unless @round.current_actions.all? { |a| a.is_a?(Action::SellShares) }
+            return [] unless @round.current_actions.all? do |a|
+              a.is_a?(Action::SellShares) || (a.is_a?(Action::Choose) && a.choice.to_s.start_with?('forcedsell'))
+            end
 
             @game.forced_player_sales(entity)
           end

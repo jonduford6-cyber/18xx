@@ -165,6 +165,19 @@ module Engine
             end
           end
 
+          # 10.6: the one line explaining a forced sale
+          def choice_explanation
+            entity = current_entity
+            shares = @game.forced_corporation_sales(entity).first
+            return unless shares
+
+            c = shares.first.corporation
+            actor = @game.control_actor(entity)
+            excess = @game.control_percent(actor, c) - @game.class::CONTROL_LIMIT
+            control = @game.control_percent(actor, c)
+            ["#{actor.name} controls #{control}% of #{c.name}; #{entity.name} must sell at least #{excess}%"]
+          end
+
           # 10.6: a sale its control limit requires, before anything else
           def sell_option(shares)
             target = shares.first.corporation

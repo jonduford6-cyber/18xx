@@ -787,6 +787,16 @@ module Engine
                   "#{format_currency(share_price.price)} each until it floats"
         end
 
+        # The card's "% to float", shown only where a company floats by
+        # certificates sold: a player-started Entre Rios, how much more must
+        # be sold until 60% has been (never below 0). Every other company
+        # floats by a charter or a start, so it shows no line.
+        def float_str(entity)
+          return if !entity.corporation? || !entity.founding
+
+          "#{[share_pool.percent_of(entity) - FOUNDING_FLOAT_POOL, 0].max}% to float"
+        end
+
         # The float at 60% sold: 10 x par from the bank, the home station, the
         # marker at the start of the next Operating Round
         def founding_float_check(company)

@@ -189,14 +189,21 @@ module Engine
         # these privates, at half to double face value, from their own hand
         CORPORATE_PURCHASABLE = %w[PLC RSL KG LBDL PFC ELG].freeze
 
-        # The privates the current (or given) Railway may buy: those its
-        # player president owns. A Railway presided over by a corporation or
-        # Lombard Street has no player president, so none.
+        # The privates the current (or given) Railway may buy: those owned by
+        # the player who acts for it, the player at the top of its chain of
+        # presidents (for a chain ending at Lombard Street, its owner).
         def purchasable_companies(entity = nil)
           entity ||= @round&.current_entity
-          return [] if !entity&.corporation? || financial?(entity) || !entity.owner&.player?
+          return [] if !entity&.corporation? || financial?(entity)
+          return [] unless (player = purchasing_player(entity))
 
-          entity.owner.companies.select { |c| CORPORATE_PURCHASABLE.include?(c.id) && !c.closed? }
+          player.companies.select { |c| CORPORATE_PURCHASABLE.include?(c.id) && !c.closed? }
+        end
+
+        def purchasing_player(entity)
+          top = control_actor(entity)
+          top = top.owner if top&.minor? # Lombard Street: its owner
+          top if top&.player?
         end
 
         # 14, Robert Stephenson & Co. Locomotive Order: its owner (a player

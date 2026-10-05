@@ -1135,6 +1135,29 @@ module Engine
           place_home_token(company) if company.restarted && tier(company) == 2 # its president chooses the home now
         end
 
+        # The row of company cards in a Stock Round: started companies by
+        # their operating order, a Railway whose marker is still waiting
+        # beside the market (no market price yet) in the spot where it will
+        # operate: by its par, after any company already in that cell or at a
+        # better place (its marker goes on the bottom of the stack), several
+        # waiting ones in the order their markers will be placed. Companies
+        # never started stay at the end, as before. Display only.
+        def sorted_corporations
+          started, others = corporations.partition(&:ipoed)
+          priced, waiting = started.partition(&:share_price)
+          order = priced.sort
+          key = ->(price) { [-price.price, -price.coordinates.last, price.coordinates.first] }
+          pending = (@pending_markers || []) & waiting
+          (pending + (waiting - pending)).each do |company|
+            next unless company.par_price
+
+            at = key.call(company.par_price)
+            spot = order.rindex { |o| (key.call(o.share_price || o.par_price) <=> at) <= 0 }
+            order.insert(spot ? spot + 1 : 0, company)
+          end
+          order + others
+        end
+
         # Pending markers go on the market at par, on the bottom of the stack
         def place_pending_markers
           (@pending_markers || []).each do |company|

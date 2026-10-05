@@ -518,14 +518,22 @@ module Engine
           seed_lombard
         end
 
-        # Every rule that says "clockwise" (9.4 who gets the new shares, 16.5 the
-        # vote, 16.6 the auction, a tie for a presidency) follows the seating,
-        # not the priority cards: the players round the table, starting with
+        # Every merger rule that says "clockwise" (9.4 who gets the new shares,
+        # 16.5 the vote, 16.6 the auction) follows the seating, not the
+        # priority cards: the players round the table, starting with
         # `player` (or from the first seat)
         def clockwise_from(player = nil)
           ring = @players.sort_by { |p| @seating.index(p.id) || 0 }
           at = player && ring.index(player)
           at ? ring.rotate(at) : ring
+        end
+
+        # 5.7: a tie for a presidency goes by the CURRENT turn order (the
+        # order of the player list, which the priority cards set): the
+        # players starting with `player` (or from the first in the list)
+        def turn_order_from(player = nil)
+          at = player && @players.index(player)
+          at ? @players.rotate(at) : @players
         end
 
         # Company cards show holdings for Lombard Street too (a minor), not
@@ -1297,7 +1305,7 @@ module Engine
           return pres unless pres
 
           held = ->(h) { h.percent_of(corporation) + changes.fetch(h, 0) }
-          players = clockwise_from(pres.player? ? pres : nil)
+          players = turn_order_from(pres.player? ? pres : nil)
           corps = @corporations.reject { |c| c.closed? || c == corporation }
           top = [pres, *players, *@minors, *corps].max_by(&held) # Lombard Street counts like a player
           held[top] > held[pres] ? top : pres
@@ -1320,13 +1328,13 @@ module Engine
         # 5.4: a president may sell the president's certificate (it counts as
         # two certificates) when another holder has at least two. The holder
         # with the most takes it and hands two of their ordinary certificates
-        # to the bank pool; a tie goes to the first in seating order
+        # to the bank pool; a tie goes to the first in the current turn order
         # clockwise from the old president. Returns that holder, or nil.
         def presidency_taker(corporation, seller)
           cert = corporation.presidents_share
           return if !cert || cert.owner != seller || corporation.owner != seller
 
-          candidates = [*clockwise_from(seller.player? ? seller : nil), *@minors,
+          candidates = [*turn_order_from(seller.player? ? seller : nil), *@minors,
                         *@corporations.reject { |c| c.closed? || c == corporation }] - [seller]
           top = candidates.max_by { |h| h.percent_of(corporation) }
           top if top && top.percent_of(corporation) >= 2 * corporation.share_percent

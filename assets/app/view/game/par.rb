@@ -50,6 +50,9 @@ module View
                                 (@corporation.max_ownership_percent / 100) * @corporation.total_shares * multiplier].min
           purchasable_shares = (purchasable_shares / multiplier).to_i * multiplier
           at_limit = purchasable_shares / multiplier * @corporation.total_shares >= @corporation.max_ownership_percent
+          if @step.respond_to?(:par_purchasable_shares) # opt-in (1887): the step knows its own limits
+            purchasable_shares, at_limit = @step.par_purchasable_shares(@current_entity, @corporation, share_price, target_cash)
+          end
           flags = at_limit ? ' L' : ''
 
           flags += " / #{@game.total_shares_to_float(@corporation, share_price.price)}" if @game.class::VARIABLE_FLOAT_PERCENTAGES

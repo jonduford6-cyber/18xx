@@ -366,8 +366,27 @@ module Engine
             @game.stock_market.par_prices.select { |p| p.price * 2 <= entity.cash + extra_cash }
           end
 
-          def par_price_only(_corporation, _share_price)
-            true
+          # The number in brackets under each par price on the par panel, as
+          # in 1830: how many shares the player could own of the company
+          # started at that par. The president's certificate costs twice the
+          # par and counts as two shares, each other share costs the par;
+          # limited by the cash (the player's, plus Lombard Street's when
+          # buying for it), by the 60% control limit (10.6) and by the
+          # certificate limit (the president's certificate is one
+          # certificate). Returns the number and whether a limit, not the
+          # cash, stopped it (the panel's "L").
+          def par_purchasable_shares(entity, corporation, share_price, extra_cash = 0)
+            price = share_price.price
+            cash = entity.cash + extra_cash
+            return [0, false] if cash < 2 * price
+
+            by_cash = 2 + (cash - 2 * price).div(price)
+            actor = @game.control_actor(entity) || entity
+            by_control = (@game.class::CONTROL_LIMIT - @game.control_percent(actor, corporation)).div(corporation.share_percent)
+            room = @game.cert_limit(entity) - @game.num_certs(entity)
+            by_certs = room >= 1 ? room + 1 : 0
+            number = [by_cash, by_control, by_certs].min
+            [number, number < by_cash]
           end
 
           def process_par(action)

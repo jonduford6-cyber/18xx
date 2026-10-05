@@ -14,6 +14,18 @@ module Engine
 
           "#{bundle.percent}%"
         end
+
+        # 5.5: a Treasury certificate is paid for at the market price and
+        # the money goes into that company's Treasury. BAGS and BAWR have
+        # full capitalization, so the shared pool would send it to the bank.
+        def transfer_shares(bundle, to_entity, **kwargs)
+          corporation = bundle.corporation
+          if bundle.owner == corporation && to_entity != corporation && kwargs[:receiver] == @bank &&
+             kwargs[:price].to_i.positive?
+            kwargs = kwargs.merge(receiver: corporation)
+          end
+          super(bundle, to_entity, **kwargs)
+        end
       end
     end
   end

@@ -1317,10 +1317,88 @@ module Engine
           end
         end
 
+        # 5.4: a president may sell the president's certificate (it counts as
+        # two certificates) when another holder has at least two. The holder
+        # with the most takes it and hands two of their ordinary certificates
+        # to the bank pool; a tie goes to the first in seating order
+        # clockwise from the old president. Returns that holder, or nil.
+        def presidency_taker(corporation, seller)
+          cert = corporation.presidents_share
+          return if !cert || cert.owner != seller || corporation.owner != seller
+
+          candidates = [*clockwise_from(seller.player? ? seller : nil), *@minors,
+                        *@corporations.reject { |c| c.closed? || c == corporation }] - [seller]
+          top = candidates.max_by { |h| h.percent_of(corporation) }
+          top if top && top.percent_of(corporation) >= 2 * corporation.share_percent
+        end
+
+        # The bundles holding the president's certificate that a player or
+        # corporation may sell: the certificate with 0, 1, ... of its ordinary
+        # certificates, within the pool limit (the swapped certificates count
+        # as the certificate's two). Added to legal_bundles, never replacing it.
+        def presidency_bundles(seller)
+          seller.shares.group_by(&:corporation).flat_map do |corporation, shares|
+            next [] if corporation == seller || !corporation.share_price || corporation.founding
+
+            cert = shares.find(&:president)
+            next [] if !cert || !presidency_taker(corporation, seller)
+
+            ordinary = shares.select { |sh| sh.buyable && !sh.president }.sort_by(&:id)
+            (0..ordinary.size).map { |n| [*ordinary.first(n), cert] }
+                              .select { |some| share_pool.fit_in_bank?(ShareBundle.new(some)) }
+          end
+        end
+
+        def presidency_bundle?(seller, shares)
+          ids = shares.map(&:id).sort
+          presidency_bundles(seller).any? { |some| some.map(&:id).sort == ids }
+        end
+
+        # Standard sell panel of a player: the president's bundles are listed too
+        def bundles_for_corporation(holder, corporation, shares: nil)
+          list = super
+          return list if shares || !holder.player?
+
+          extra = presidency_bundles(holder).select { |some| some.first.corporation == corporation }
+                                            .map { |some| ShareBundle.new(some) }
+                                            .reject { |x| list.any? { |b| !b.partial? && b.shares.map(&:id).sort == x.shares.map(&:id).sort } }
+          (list + extra).sort_by(&:percent)
+        end
+
+        # The money for a bundle at the company's price: one price per
+        # certificate, the president's certificate counting for two
+        def sale_price(shares)
+          corporation = shares.first.corporation
+          corporation.share_price.price * shares.sum(&:percent).div(corporation.share_percent)
+        end
+
+        # 5.4: the president's certificate and any ordinary ones go to the
+        # pool and are paid at the price per certificate; the taker gets the
+        # certificate and hands two ordinary ones to the pool; one row down
+        # per certificate sold (the president's counting for two)
+        def sell_presidency_bundle(shares)
+          corporation = shares.first.corporation
+          cert = shares.find(&:president)
+          seller = cert.owner
+          taker = presidency_taker(corporation, seller)
+          raise GameError, "No other holder of #{corporation.name} has two certificates" unless taker
+
+          bundle = ShareBundle.new(shares)
+          bundle.share_price = corporation.share_price.price
+          count = shares.sum(&:percent).div(corporation.share_percent)
+          share_pool.sell_shares(bundle, allow_president_change: false)
+          share_pool.change_president(cert, share_pool, taker, seller)
+          corporation.owner = taker
+          @log << "#{taker.name} becomes the president of #{corporation.name}"
+          count.times { price_down(corporation) }
+        end
+
         # Sells certificates of one company together to the bank pool at the
         # current price per certificate; a presidency swap once, after the
         # whole bundle; then the price drops one row per certificate
         def sell_bundle(shares)
+          return sell_presidency_bundle(shares) if shares.any?(&:president)
+
           corporation = shares.first.corporation
           bundle = ShareBundle.new(shares)
           bundle.share_price = corporation.share_price.price
@@ -1489,6 +1567,10 @@ module Engine
         # "sell:<company>:<count>" stands for
         def bundle_for(seller, corporation_id, count)
           corporation = corporation_by_id(corporation_id)
+          if count.to_s.start_with?('p') # "p1": the president's certificate and 1 ordinary one
+            return presidency_bundles(seller).find { |some| some.first.corporation == corporation && some.size == count.to_s[1..].to_i + 1 }
+          end
+
           legal_bundles(seller).find { |some| some.first.corporation == corporation && some.size == count.to_i }
         end
 

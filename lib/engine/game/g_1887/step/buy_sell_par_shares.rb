@@ -282,10 +282,17 @@ module Engine
             super(entity, shares)
           end
 
+          def can_dump?(entity, bundle)
+            bundle.presidents_share ? true : super # checked by the game: presidency_bundle?
+          end
+
           def can_sell?(entity, bundle)
             return false if bundle.corporation.founding # nobody sells before it floats
             return false unless bundle.corporation.share_price # 5.1: no market price, no sale
-            return false if bundle.presidents_share # 5.4: a president's certificate is never sold
+            # 5.4: a president's certificate is sold only when another holder has two certificates
+            if bundle.presidents_share
+              return false if bundle.partial? || !@game.presidency_bundle?(entity, bundle.shares)
+            end
 
             forced = forced_sales(entity)
             return forced.any? { |some| some.map(&:id).sort == bundle.shares.map(&:id).sort } unless forced.empty?

@@ -204,6 +204,16 @@ module Engine
                 label: "Sell #{some.sum(&:percent)}% #{target.name} (#{fmt[target.share_price.price * some.size]})",
               }
             end
+            # 5.4: the president's certificate, with "p<n>" ordinary ones
+            list.concat(@game.presidency_bundles(entity).map do |some|
+              target = some.first.corporation
+              {
+                choice: "sell:#{target.id}:p#{some.size - 1}",
+                share: some.first,
+                shares: some,
+                label: "Sell #{some.sum(&:percent)}% #{target.name} (#{fmt[@game.sale_price(some)]})",
+              }
+            end)
             if (share = @game.redeemable_share(entity))
               list << {
                 choice: 'redeem',
@@ -263,7 +273,7 @@ module Engine
 
             fmt = ->(v) { @game.format_currency(v) }
             sells = other_options(entity).select { |o| o[:choice].start_with?('sell:') && o[:share].corporation == corporation }
-                                         .map { |o| [o[:choice], "Sell #{o[:shares].sum(&:percent)}% (#{fmt[corporation.share_price.price * o[:shares].size]})"] }
+                                         .map { |o| [o[:choice], "Sell #{o[:shares].sum(&:percent)}% (#{fmt[@game.sale_price(o[:shares])]})"] }
             buys = buy_options(entity).select { |o| o[:share].corporation == corporation }.map do |o|
               source = o[:choice].split(':').first
               [o[:choice], "Buy #{o[:share].percent}% #{source} Share (#{fmt[o[:price]]})"]

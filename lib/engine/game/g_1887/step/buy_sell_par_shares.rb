@@ -56,7 +56,7 @@ module Engine
             bundles.map do |shares|
               c = shares.first.corporation
               price = @game.format_currency(c.share_price.price * shares.sum(&:num_shares))
-              ["forcedsell:#{c.id}:#{shares.map(&:id).join('+')}", "Sell #{shares.sum(&:percent)}% #{c.name} (#{price})", shares]
+              ["forcedsell:#{c.id}:#{shares.map(&:id).join('+')}", "Sell #{@game.count_of(shares)} #{c.name} (#{price})", shares]
             end
           end
 

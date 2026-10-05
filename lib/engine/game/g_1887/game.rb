@@ -762,6 +762,33 @@ module Engine
           true
         end
 
+        # Opt-in (read by the corporation card and the Buy/Sell buttons): show
+        # share COUNTS, as 1830 does (the president's certificate counts 2; a
+        # Railway has 10 shares, a Finance House or Construction Company 5).
+        # Player cards and the spreadsheet stay in percent.
+        def shares_as_count?
+          true
+        end
+
+        # The number of shares in a list of certificates (the president's
+        # certificate counts as two)
+        def count_of(shares)
+          shares.sum(&:percent).div(shares.first.corporation.share_percent)
+        end
+
+        # One Sell button per number of shares: ordinary certificates are
+        # sold first, the president's certificate only when the count is more
+        # than the seller's ordinary shares (display only: the engine still
+        # accepts every bundle it accepted before)
+        def sellable_bundles(player, corporation)
+          best = {}
+          super.each do |bundle|
+            have = best[bundle.num_shares]
+            best[bundle.num_shares] = bundle if !have || (have.presidents_share && !bundle.presidents_share)
+          end
+          best.sort.map(&:last)
+        end
+
         def init_share_pool
           G1887::SharePool.new(self, allow_president_sale: self.class::PRESIDENT_SALES_TO_MARKET)
         end

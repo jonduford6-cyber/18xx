@@ -63,6 +63,8 @@ module View
       private
 
       def share_presentation(bundle)
+        return bundle.num_shares.to_s if @game.respond_to?(:shares_as_count?) && @game.shares_as_count? # opt-in
+
         return "#{bundle.percent}%" if @game.respond_to?(:shares_as_percent?) && @game.shares_as_percent?
 
         num_shares = bundle.num_shares

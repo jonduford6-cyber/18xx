@@ -37,13 +37,19 @@ module View
 
           text = @prefix.to_s
           text += " #{@partial_percent}% of" if @partial_percent
-          text += " #{bundle.percent}%" if show_percentage
+          counts = @game.respond_to?(:shares_as_count?) && @game.shares_as_count? # opt-in: "Buy 1 Market Share ($63)"
+          if counts
+            text += " #{bundle.num_shares}"
+          elsif show_percentage
+            text += " #{bundle.percent}%"
+          end
           text += " #{@source}"
           text += ' Preferred' if @share.preferred
           text += ' Share'
           text += " (#{reduced_price} + #{@swap_share.percent}% Share)" if @swap_share
           text += " (#{@game.format_currency(modified_bundle_price)})" if modified_bundle_price
           text += " for #{@purchase_for.name}" if @purchase_for
+          text += " (#{@game.format_currency(bundle.price)})" if counts && !modified_bundle_price
 
           process_buy = lambda do
             do_buy = lambda do

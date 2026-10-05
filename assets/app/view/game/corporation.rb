@@ -369,6 +369,7 @@ module View
 
       def share_number_str(number)
         return '' if number.zero?
+        return number.to_i.to_s if shares_as_count? # opt-in: counts, as 1830
         return "#{(number * @corporation.share_percent).round}%" if shares_as_percent?
 
         result = number.to_s
@@ -759,6 +760,11 @@ module View
 
       def logo_for_user(entity)
         setting_for(:simple_logos, @game) ? entity.simple_logo : entity.logo
+      end
+
+      # Opt-in: games defining shares_as_count? show share counts (not percent)
+      def shares_as_count?
+        @game.respond_to?(:shares_as_count?) && @game.shares_as_count?
       end
 
       # Opt-in: games defining shares_as_percent? show percentages, not units

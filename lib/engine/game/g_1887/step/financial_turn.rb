@@ -162,7 +162,7 @@ module Engine
                   choice: "#{source}:#{target.id}",
                   share: share,
                   price: price,
-                  label: "Buy #{share.percent}% #{target.name} #{source} Share " \
+                  label: "Buy #{@game.count_of([share])} #{target.name} #{source} Share " \
                          "(#{@game.format_currency(price)})",
                 }
               end
@@ -186,7 +186,7 @@ module Engine
           def sell_option(shares)
             target = shares.first.corporation
             ["sell:#{target.id}:#{shares.size}",
-             "Sell #{shares.sum(&:percent)}% #{target.name} (#{@game.format_currency(target.share_price.price * shares.size)})"]
+             "Sell #{@game.count_of(shares)} #{target.name} (#{@game.format_currency(target.share_price.price * shares.size)})"]
           end
 
           # Sell (before the action), Redeem and Reissue buttons
@@ -201,24 +201,29 @@ module Engine
                 choice: "sell:#{target.id}:#{some.size}",
                 share: share,
                 shares: some,
-                label: "Sell #{some.sum(&:percent)}% #{target.name} (#{fmt[target.share_price.price * some.size]})",
+                label: "Sell #{@game.count_of(some)} #{target.name} (#{fmt[target.share_price.price * some.size]})",
               }
             end
             # 5.4: the president's certificate, with "p<n>" ordinary ones
-            list.concat(@game.presidency_bundles(entity).map do |some|
+            # (one button per number of shares: the certificate only when the
+            # count is more than the seller's ordinary shares)
+            list.concat(@game.presidency_bundles(entity).reject do |some|
+              ordinary = entity.shares_of(some.first.corporation).count { |sh| sh.buyable && !sh.president }
+              @game.count_of(some) <= ordinary
+            end.map do |some|
               target = some.first.corporation
               {
                 choice: "sell:#{target.id}:p#{some.size - 1}",
                 share: some.first,
                 shares: some,
-                label: "Sell #{some.sum(&:percent)}% #{target.name} (#{fmt[@game.sale_price(some)]})",
+                label: "Sell #{@game.count_of(some)} #{target.name} (#{fmt[@game.sale_price(some)]})",
               }
             end)
             if (share = @game.redeemable_share(entity))
               list << {
                 choice: 'redeem',
                 share: share,
-                label: "Redeem #{share.percent}% Market Share (#{fmt[entity.share_price.price]})",
+                label: "Redeem #{@game.count_of([share])} Market Share (#{fmt[entity.share_price.price]})",
               }
             end
             shares = @game.reissuable_shares(entity)
@@ -227,7 +232,7 @@ module Engine
               list << {
                 choice: "reissue:#{n}",
                 share: some.first,
-                label: "Issue #{some.sum(&:percent)}% Treasury #{n == 1 ? 'Share' : 'Shares'} " \
+                label: "Issue #{@game.count_of(some)} Treasury #{n == 1 ? 'Share' : 'Shares'} " \
                        "(#{fmt[entity.share_price.price * n]})",
               }
             end
@@ -273,10 +278,10 @@ module Engine
 
             fmt = ->(v) { @game.format_currency(v) }
             sells = other_options(entity).select { |o| o[:choice].start_with?('sell:') && o[:share].corporation == corporation }
-                                         .map { |o| [o[:choice], "Sell #{o[:shares].sum(&:percent)}% (#{fmt[@game.sale_price(o[:shares])]})"] }
+                                         .map { |o| [o[:choice], "Sell #{@game.count_of(o[:shares])} (#{fmt[@game.sale_price(o[:shares])]})"] }
             buys = buy_options(entity).select { |o| o[:share].corporation == corporation }.map do |o|
               source = o[:choice].split(':').first
-              [o[:choice], "Buy #{o[:share].percent}% #{source} Share (#{fmt[o[:price]]})"]
+              [o[:choice], "Buy #{@game.count_of([o[:share]])} #{source} Share (#{fmt[o[:price]]})"]
             end
             sells + buys
           end

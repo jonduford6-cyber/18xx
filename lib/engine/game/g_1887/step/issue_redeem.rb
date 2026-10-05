@@ -45,10 +45,10 @@ module Engine
             corporation = current_entity
             list = {}
             if (share = @game.issuable_share(corporation))
-              list['issue'] = "Issue #{share.percent}% Treasury Share (#{price_str(corporation, share)})"
+              list['issue'] = "Issue #{@game.count_of([share])} Treasury Share (#{price_str(corporation, share)})"
             end
             if (share = @game.redeemable_share(corporation))
-              list['redeem'] = "Redeem #{share.percent}% Market Share (#{price_str(corporation, share)})"
+              list['redeem'] = "Redeem #{@game.count_of([share])} Market Share (#{price_str(corporation, share)})"
             end
             list
           end

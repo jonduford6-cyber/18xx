@@ -62,7 +62,7 @@ module Engine
             holder = current_entity
             fmt = @game.format_currency(half)
             list = { 'cash' => "Take #{fmt}" }
-            list['buy'] = "Buy #{@game.unit_percent(survivor)}% (#{fmt})" if can_buy?(holder)
+            list['buy'] = "Buy 1 (#{fmt})" if can_buy?(holder)
             list
           end
 

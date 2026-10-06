@@ -115,8 +115,18 @@ module Engine
         STATUS_TEXT = Base::STATUS_TEXT.merge(
           'can_buy_companies' =>
             ['Railways may buy private companies',
-             'From phase 3 a Railway may buy a private company from the player at the top of its chain'],
+             'From phase 3 a Railway may buy a private company from the player at the top of its chain. ' \
+             'Most private companies close at phase 5. The Parana Ferry Company stays open and can still be bought.'],
         ).freeze
+
+        # The Info tab prints the buying status on phases 3 and 4 only; the
+        # phase data itself (read by the engine) keeps it on from phase 3 on,
+        # because the Parana Ferry Company can still be bought later
+        INFO_STATUS_PHASES = %w[3 4].freeze
+
+        def info_phase_status(phase)
+          INFO_STATUS_PHASES.include?(phase[:name]) ? phase[:status] : nil
+        end
 
         # A train discarded over the limit is removed from the game (as in 1871)
         DISCARDED_TRAINS = :remove

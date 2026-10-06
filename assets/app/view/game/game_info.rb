@@ -66,7 +66,8 @@ module View
         rows = @game.phase.phases.map do |phase|
           row_events = []
 
-          phase[:status]&.each do |status|
+          # opt-in (1887): a game may choose which statuses the table draws for a phase
+          (@game.respond_to?(:info_phase_status) ? @game.info_phase_status(phase) : phase[:status])&.each do |status|
             row_events << @game.class::STATUS_TEXT[status] if @game.class::STATUS_TEXT[status]
           end
           phases_events.concat(row_events)

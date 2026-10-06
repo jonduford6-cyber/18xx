@@ -110,6 +110,14 @@ module Engine
           confidence: 'The Confidence Track reached its final space',
         ).freeze
 
+        # The phase table on the Info tab: the same status as before, with
+        # 1887's own wording (display only)
+        STATUS_TEXT = Base::STATUS_TEXT.merge(
+          'can_buy_companies' =>
+            ['Railways may buy private companies',
+             'From phase 3 a Railway may buy a private company from the player at the top of its chain'],
+        ).freeze
+
         # A train discarded over the limit is removed from the game (as in 1871)
         DISCARDED_TRAINS = :remove
 

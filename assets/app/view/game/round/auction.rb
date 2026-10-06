@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# backtick_javascript: true
+
 require 'view/game/actionable'
 require 'view/game/company'
 require 'view/game/par'
@@ -199,6 +201,8 @@ module View
                       size: @current_entity.cash.to_s.size + 2,
                     })
 
+          note = render_bid_note(company, input)
+
           buttons = []
           if @step.may_bid?(company) && @step.min_bid(company) <= @step.max_place_bid(@current_entity, company)
             if @step.respond_to?(:bid_choices) && (choices = @step.bid_choices(company))
@@ -215,7 +219,43 @@ module View
 
           return [] if buttons.empty?
 
-          [input, *buttons]
+          [input, *buttons, *note]
+        end
+
+        # Opt-in (1887): a step that defines bid_note gets a note under the bid
+        # box that follows the box's input event (typing and the arrows). The
+        # note is written straight into the page, nothing is stored. Any error
+        # here is swallowed: the note then simply draws nothing, and the box,
+        # the buttons and the bid are never affected.
+        def render_bid_note(company, input)
+          return [] unless @step.respond_to?(:bid_note)
+
+          step = @step
+          id = "bid_note_#{company.sym}"
+          box_id = "bid_box_#{company.sym}"
+          amount = [bid_note_box_value(box_id), step.min_bid(company)].max
+          text = step.bid_note(company, amount)
+          return [] unless text
+
+          note = h(:div, { attrs: { id: id }, style: { marginTop: '0.4rem', fontSize: '90%' } }, text)
+          handler = proc do
+            typed = [input.JS['elm'].JS['value'].to_i, step.min_bid(company)].max
+            new_text = step.bid_note(company, typed)
+            note.JS['elm'].JS['textContent'] = new_text if new_text && note.JS['elm']
+          rescue Exception # rubocop:disable Lint/RescueException
+            nil
+          end
+          `var data = #{input}.data`
+          `data.attrs = Object.assign(data.attrs || {}, { id: #{box_id} })`
+          `data.on = { input: #{handler} }`
+          [note]
+        rescue Exception # rubocop:disable Lint/RescueException
+          []
+        end
+
+        # the number now in the page's bid box (a redraw keeps the typed number), 0 when there is none
+        def bid_note_box_value(id)
+          `typeof document === 'undefined' ? 0 : (document.getElementById(#{id}) || {}).value | 0`
         end
 
         def render_move_bid_buttons(company, input)

@@ -146,6 +146,29 @@ module Engine
             player.cash
           end
 
+          # A note under the bid box of a Charter (display only): the par the
+          # Finance House gets if this bid wins (the same rule as
+          # finance_house_par) and the cash it starts with, the bid itself
+          # (float_finance_house pays the winning bid into its treasury).
+          # Every lookup is guarded: with nothing to say (no Charter, no
+          # amount, the auction over) it returns nil, and it never raises
+          def bid_note(company, amount)
+            fh_id = company && @game.class::CHARTERS[company.id]
+            fh = fh_id && @game.corporation_by_id(fh_id)
+            amount = amount.to_i if amount
+            return unless fh
+            return unless amount&.positive?
+
+            par = @game.finance_house_par(amount)
+            return unless par
+
+            name = fh.full_name.to_s.sub(/ \((FH|CC)\)\z/, '')
+            "If this bid wins, #{name} pars at #{@game.format_currency(par.price)} and starts with " \
+              "#{@game.format_currency(amount)}."
+          rescue StandardError
+            nil
+          end
+
           private
 
           def add_bid(bid)

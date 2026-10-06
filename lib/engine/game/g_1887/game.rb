@@ -512,6 +512,23 @@ module Engine
           super
         end
 
+        # Optional rule: permanent 5-trains. The 5-train rusts nothing and is
+        # never rusted; the 6-train rusts the 3-trains; the Diesel rusts the
+        # 4-trains. (The 4-train still rusts the 2-trains.) The Info tab's
+        # train table reads these values.
+        def game_trains
+          return super unless optional_rules.include?(:permanent_five_trains)
+
+          super.map do |train|
+            case train[:name]
+            when '3' then train.merge(rusts_on: '6')
+            when '4' then train.merge(rusts_on: 'D')
+            when '5' then train.reject { |key, _| key == :rusts_on }
+            else train
+            end
+          end
+        end
+
         FINANCE_HOUSES = %w[BB HAM MUR].freeze
 
         CONSTRUCTION_COS = %w[BWW J&MC MEIG].freeze

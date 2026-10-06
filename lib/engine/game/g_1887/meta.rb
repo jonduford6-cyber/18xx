@@ -40,6 +40,11 @@ module Engine
             desc: 'Mergers are announced in a Merger Round after each Operating Round set and decided by an auction for ' \
                   'control, instead of the friendly merger. Not with Contested merger.',
           },
+          {
+            sym: :permanent_five_trains,
+            short_name: 'Permanent 5-trains',
+            desc: '5-trains never rust; 6-trains rust 3-trains; Diesels rust 4-trains',
+          },
         ].freeze
 
         # At most one merger style (the site's creation form unticks the other)

@@ -13,6 +13,7 @@ require 'view/game/stock_market'
 require 'view/game/tranches'
 require 'view/game/bid'
 require 'view/game/ipo_rows'
+require 'view/game/stock_columns'
 
 module View
   module Game
@@ -20,6 +21,8 @@ module View
       class Stock < Snabberb::Component
         include Lib::Settings
         include Actionable
+        include StockColumns
+        needs :user, default: nil, store: true
         needs :selected_corporation, default: nil, store: true
         needs :selected_company, default: nil, store: true
         needs :last_player, default: nil, store: true
@@ -89,18 +92,24 @@ module View
           children << h(SpecialBuy) if @current_actions.include?('special_buy')
           children.concat(render_failed_merge) if @current_actions.include?('failed_merge')
           children.concat(render_bank_companies) if @bank_first
-          children.concat(render_corporations) unless @hide_corporations
+          # opt-in (1887): one column per player, as on the Entities tab
+          stock_columns = @game.round.is_a?(Engine::Round::Stock) && @game.respond_to?(:stock_columns?) && @game.stock_columns?
+          if stock_columns
+            children.concat(render_stock_columns) unless @hide_corporations
+          else
+            children.concat(render_corporations) unless @hide_corporations
+          end
           children.concat(render_mergeable_entities) if @current_actions.include?('merge')
           children.concat(render_player_companies) if @current_actions.include?('sell_company')
           children.concat(render_ipo_rows) if @game.show_ipo_rows?
           children.concat(render_bank_companies) unless @bank_first
           children << render_show_hand_button unless @game.hand_companies_for_stock_round.empty?
           children.concat(render_hand_companies) if show_sr_hand?
-          children << h(Players, game: @game)
+          children << h(Players, game: @game) unless stock_columns
           if @step.respond_to?(:purchasable_companies) && !@step.purchasable_companies(@current_entity).empty?
             children << h(BuyCompanyFromOtherPlayer, game: @game)
           end
-          children << render_bank
+          children << render_bank unless stock_columns
           children << h(StockMarket, game: @game, show_bank: true)
 
           h(:div, children)

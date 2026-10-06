@@ -524,7 +524,7 @@ module Engine
             case train[:name]
             when '3' then train.merge(rusts_on: '6')
             when '4' then train.merge(rusts_on: 'D')
-            when '5' then train.reject { |key, _| key == :rusts_on }
+            when '5' then train.except(:rusts_on)
             else train
             end
           end
@@ -802,6 +802,45 @@ module Engine
           ordered = @players.flat_map { |p| walk.call(p) }
           ordered.concat(entities.reject { |e| placed[e] }.sort_by(&rank))
           ordered.group_by { |e| (e.minor? ? e.owner : controller(e)) || @players.first }
+        end
+
+        # Opt-in (read by Round::Stock): the Game tab of a Stock Round is
+        # drawn as one column per player, as on the Entities tab (display only)
+        def stock_columns?
+          true
+        end
+
+        # One entry per player, in the order given: [player, Lombard Street
+        # (if the player owns it), the companies the player presides over
+        # directly (BAGS, BAWR, Finance Houses, Construction Companies, other
+        # Railways), the companies below them (through a corporation or
+        # Lombard Street) grouped by chain, as the Entities tab orders them].
+        # Every started company is in exactly one entry.
+        def stock_round_columns(players)
+          groups = player_sort((corporations + minors).reject(&:closed?).select(&:owner))
+          players.map do |player|
+            list = groups[player] || []
+            lombard_cards = list.select(&:minor?)
+            direct, below = (list - lombard_cards).partition { |e| e.owner == player }
+            direct = direct.sort_by { |e| [direct_rank(e), e.name] }
+            [player, lombard_cards, direct, below]
+          end
+        end
+
+        def direct_rank(entity)
+          return RAILWAY_ORDER.index(entity.id) if RAILWAY_ORDER.include?(entity.id)
+
+          [2, 3, 4][tier(entity)]
+        end
+
+        # The charters not started (or retired) that nobody owns
+        def stock_not_started
+          sorted_corporations.reject { |c| c.closed? || c.owner }
+        end
+
+        # The next operating order: [company, waiting for its marker]
+        def stock_order_strip
+          sorted_corporations.select { |c| c.ipoed && !c.closed? && c.owner }.map { |c| [c, !c.share_price] }
         end
 
         # Show share quantities as percentages on cards, the spreadsheet and

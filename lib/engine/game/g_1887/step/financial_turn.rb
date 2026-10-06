@@ -29,7 +29,6 @@ module Engine
 
           def actions(entity)
             return [] unless entity == current_entity
-            return %w[choose] unless @game.forced_corporation_sales(entity).empty?
             return %w[bid pass] if @start_chosen
             return %w[choose pass] if !buy_options(entity).empty? || !other_options(entity).empty? ||
                                       !@game.merge_options(entity).empty?
@@ -169,26 +168,6 @@ module Engine
             end
           end
 
-          # 10.6: the one line explaining a forced sale
-          def choice_explanation
-            entity = current_entity
-            shares = @game.forced_corporation_sales(entity).first
-            return unless shares
-
-            c = shares.first.corporation
-            actor = @game.control_actor(entity)
-            excess = @game.control_percent(actor, c) - @game.class::CONTROL_LIMIT
-            control = @game.control_percent(actor, c)
-            ["#{actor.name} controls #{control}% of #{c.name}; #{entity.name} must sell at least #{excess}%"]
-          end
-
-          # 10.6: a sale its control limit requires, before anything else
-          def sell_option(shares)
-            target = shares.first.corporation
-            ["sell:#{target.id}:#{shares.size}",
-             "Sell #{@game.count_of(shares)} #{target.name} (#{@game.format_currency(target.share_price.price * shares.size)})"]
-          end
-
           # Sell (before the action), Redeem and Reissue buttons
           def other_options(entity)
             return [] unless @game.financial?(entity)
@@ -241,13 +220,9 @@ module Engine
 
           # The turn menu: Start, Merge, Issue and Redeem (Pass is the Pass
           # button). Selling and buying shares of other companies are on those
-          # companies' cards (card_choices); a required sale is the menu's
-          # only set of buttons (it is the corporation's only action).
+          # companies' cards (card_choices).
           def choices
             entity = current_entity
-            forced = @game.forced_corporation_sales(entity)
-            return forced.to_h { |some| sell_option(some) } unless forced.empty?
-
             list = {}
             unless available.empty?
               list['start'] = @game.finance_house?(entity) ? 'Start a Construction Company' : 'Start a Railway'
@@ -271,10 +246,9 @@ module Engine
           # The buttons on another company's card: this corporation's legal
           # sales and purchases of that company's shares, with the same
           # choices (and so the same actions and log lines) the menu had.
-          # Nothing during a required sale.
           def card_choices(corporation)
             entity = current_entity
-            return [] if !@game.financial?(entity) || !@game.forced_corporation_sales(entity).empty?
+            return [] unless @game.financial?(entity)
 
             fmt = ->(v) { @game.format_currency(v) }
             sells = other_options(entity).select { |o| o[:choice].start_with?('sell:') && o[:share].corporation == corporation }
@@ -288,12 +262,9 @@ module Engine
 
           # Cards of the corporations offered, below the acting corporation's
           # own card: those with sales or purchases, and a merge's two
-          # companies; during a required sale, the company to sell
+          # companies
           def show_other
             entity = current_entity
-            forced = @game.forced_corporation_sales(entity)
-            return forced.map { |some| some.first.corporation }.uniq - [entity] unless forced.empty?
-
             ((buy_options(entity) + other_options(entity).select { |o| o[:choice].start_with?('sell:') }).map { |o| o[:share].corporation } +
              @game.merge_options(entity).flat_map { |_, _, s, r| [s, r] }).uniq - [entity]
           end
@@ -301,11 +272,6 @@ module Engine
           def process_choose(action)
             entity = action.entity
             kind, arg, count = action.choice.split(':')
-            forced = @game.forced_corporation_sales(entity)
-            if !forced.empty? && forced.none? { |some| sell_option(some).first == action.choice }
-              raise GameError, "#{entity.name} must first sell down to 60% control"
-            end
-
             if kind == 'sell'
               shares = @game.bundle_for(entity, arg, count)
               raise GameError, "#{entity.name} cannot sell #{arg} now" unless shares
@@ -313,14 +279,7 @@ module Engine
               @game.sell_bundle(shares)
               @sold = true
               (@sold_companies ||= []) << shares.first.corporation
-              return if forced.empty?
-
-              # 5.6: a required sale is the only action of the turn (no
-              # penalty); several required sales are all made first
-              return unless @game.forced_corporation_sales(entity).empty?
-
-              @log << "#{entity.name}'s required sale is its only action this turn"
-              return pass!
+              return
             end
             if %w[redeem reissue].include?(kind)
               option = other_options(entity).find { |o| o[:choice] == action.choice }

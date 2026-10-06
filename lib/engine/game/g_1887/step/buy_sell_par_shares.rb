@@ -23,8 +23,8 @@ module Engine
           # Baring & Robertson Credit's pull-back: a button in its owner's
           # turn that is not a buy
           def actions(entity)
-            # 10.6 / the certificate limit: a required sale comes first, as
-            # buttons at the top
+            # the certificate limit: a required sale comes first, as buttons
+            # at the top
             return %w[choose] if entity == current_entity && !forced_options(entity).empty?
 
             acts = super
@@ -42,16 +42,13 @@ module Engine
                !exchange_options(entity).empty?)
           end
 
-          # Required sales, one button each: the 10.6 sell-down, or any legal
-          # sale while over the certificate limit
+          # Required sales, one button each: any legal sale while over the
+          # certificate limit (the 60% control limit never forces a sale)
           def forced_options(entity)
-            return [] if !entity.player? || entity != current_entity
+            return [] if !entity.player? || entity != current_entity || @game.num_certs(entity) <= @game.cert_limit(entity)
 
-            bundles = forced_sales(entity)
-            if bundles.empty? && @game.num_certs(entity) > @game.cert_limit(entity)
-              bundles = entity.shares.map(&:corporation).uniq.flat_map do |c|
-                @game.bundles_for_corporation(entity, c).select { |bb| can_sell?(entity, bb) }.map(&:shares)
-              end
+            bundles = entity.shares.map(&:corporation).uniq.flat_map do |c|
+              @game.bundles_for_corporation(entity, c).select { |bb| can_sell?(entity, bb) }.map(&:shares)
             end
             bundles.map do |shares|
               c = shares.first.corporation
@@ -64,13 +61,9 @@ module Engine
             entity = current_entity
             return unless entity&.player?
 
-            if (shares = forced_sales(entity).first)
-              c = shares.first.corporation
-              excess = @game.control_percent(entity, c) - @game.class::CONTROL_LIMIT
-              ["#{entity.name} controls #{@game.control_percent(entity, c)}% of #{c.name} and must sell at least #{excess}%"]
-            elsif !forced_options(entity).empty?
-              ["#{entity.name} holds #{@game.num_certs(entity)} certificates; the limit is #{@game.cert_limit(entity)}"]
-            end
+            return if forced_options(entity).empty?
+
+            ["#{entity.name} holds #{@game.num_certs(entity)} certificates; the limit is #{@game.cert_limit(entity)}"]
           end
 
           # 5.9: any number of exchanges in a turn; an exchange is not the
@@ -256,22 +249,10 @@ module Engine
             track_action(action, corporation)
           end
 
-          # 10.6: while a forced sale is due, only that sale
-          # Both required sales (10.6 and the certificate limit) are shown as
-          # buttons at the top (forced_options), not the standard way
+          # The required sale (the certificate limit) is shown as buttons at
+          # the top (forced_options), not the standard way
           def must_sell?(_entity)
             false
-          end
-
-          # 10.6: due at the start of the player's turn (before anything but
-          # forced sales); an excess arising mid-turn waits for the next turn
-          def forced_sales(entity)
-            return [] unless entity.player?
-            return [] unless @round.current_actions.all? do |a|
-              a.is_a?(Action::SellShares) || (a.is_a?(Action::Choose) && a.choice.to_s.start_with?('forcedsell'))
-            end
-
-            @game.forced_player_sales(entity)
           end
 
           # Every sale is checked: 1887 has no partial swap of a president's
@@ -293,9 +274,6 @@ module Engine
             if bundle.presidents_share
               return false if bundle.partial? || !@game.presidency_bundle?(entity, bundle.shares)
             end
-
-            forced = forced_sales(entity)
-            return forced.any? { |some| some.map(&:id).sort == bundle.shares.map(&:id).sort } unless forced.empty?
 
             super
           end

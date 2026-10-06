@@ -1623,7 +1623,9 @@ module Engine
         # certificates the player holds in it and those held by every
         # corporation down the player's chain of presidencies. Lombard Street
         # is its own actor: its holdings (and its chain's) do not count for
-        # its owner, and its control is capped like a player's.
+        # its owner, and its control is capped like a player's. The limit only
+        # blocks buying and starting: nobody is ever forced to sell because
+        # of it (the certificate limit still forces a sell-down).
         CONTROL_LIMIT = 60
 
         # The actor whose control a holder's purchase counts toward: a
@@ -1659,13 +1661,6 @@ module Engine
           control_percent(actor, corporation) + percent <= CONTROL_LIMIT
         end
 
-        # 10.6 waivers: no forced sale of a company that has not yet completed
-        # an Operating Round turn, or that would put more than 50% of it in
-        # the bank pool (the bundle offered is then left out)
-        def control_sale_waived?(corporation)
-          !completed_operating_turn?(corporation)
-        end
-
         # Railways, Finance Houses and Construction Companies alike
         def completed_operating_turn?(corporation)
           (@completed_operating_turns ||= []).include?(corporation)
@@ -1696,40 +1691,6 @@ module Engine
           return if !operator.corporation? || operator.retired || completed_operating_turn?(operator)
 
           (@completed_operating_turns ||= []) << operator
-        end
-
-        # The bundle a holder must sell of a company because its actor's
-        # control is over 60%: the smallest legal bundle that brings control
-        # to 60% or less, or all it may sell; nil if none is due or waived
-        def forced_control_sale(holder, corporation)
-          actor = control_actor(holder)
-          return if !actor || holder.minor? # Lombard Street never sells
-
-          excess = control_percent(actor, corporation) - CONTROL_LIMIT
-          return if !excess.positive? || control_sale_waived?(corporation)
-
-          ordinary = holder.shares_of(corporation).select { |sh| sh.buyable && !sh.president }.sort_by(&:id)
-          return if ordinary.empty?
-
-          needed = (1..ordinary.size).map { |n| ordinary.first(n) }.find { |some| some.sum(&:percent) >= excess } || ordinary
-          # the second waiver: not while it would put more than 50% in the pool
-          needed if legal_bundles(holder).include?(needed)
-        end
-
-        # A corporation's forced sales at its financial turn
-        def forced_corporation_sales(corporation)
-          corporation.shares.map(&:corporation).uniq.filter_map { |c| forced_control_sale(corporation, c) }
-        end
-
-        # A player's forced sales at the start of a Stock Round turn: only
-        # when no corporation in the player's chain still holds that company
-        # (corporations sell first, at their financial turns)
-        def forced_player_sales(player)
-          player.shares.map(&:corporation).uniq.filter_map do |c|
-            next if control_holders(player).any? { |h| h.corporation? && h != c && h.percent_of(c).positive? }
-
-            forced_control_sale(player, c)
-          end
         end
 
         # Stock Round sales follow 1887's own rules: the presidency by 1887's

@@ -543,6 +543,16 @@ module Engine
           revenue + (HIGHER_REVENUE_PER_STOP * stops.size)
         end
 
+        # Display only: the map draws every stop's number plus $10 with the
+        # option (zero stays zero: such a stop draws nothing). Never used by
+        # the engine.
+        def display_revenue(revenue)
+          return revenue unless optional_rules.include?(:higher_revenues)
+          return revenue unless revenue.is_a?(Numeric) && revenue.positive?
+
+          revenue + HIGHER_REVENUE_PER_STOP
+        end
+
         FINANCE_HOUSES = %w[BB HAM MUR].freeze
 
         CONSTRUCTION_COS = %w[BWW J&MC MEIG].freeze

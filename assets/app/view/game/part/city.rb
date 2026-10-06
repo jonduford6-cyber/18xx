@@ -396,7 +396,7 @@ module View
           h(:g, { attrs: { transform: "rotate(#{rotation})" } }, [
             h(:g, { attrs: { transform: "translate(#{displacement} 0) rotate(#{-revert_angle})" } }, [
               h(Part::SingleRevenue,
-                revenue: revenue,
+                revenue: revenue_for_display(revenue),
                 transform: rotation_for_layout,
                 force: @city.pass?),
             ]),

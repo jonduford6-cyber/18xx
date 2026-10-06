@@ -43,6 +43,15 @@ module View
       needs :start_pos, default: [1, 1]
       needs :highlight, default: false
 
+      # opt-in: a game that answers display_revenue changes the revenue numbers
+      # drawn on the map; the Tiles tab keeps the printed numbers
+      def revenue_display
+        return unless @game.respond_to?(:display_revenue)
+        return if @role == :tile_page
+
+        ->(revenue) { @game.display_revenue(revenue) }
+      end
+
       def render
         return '' if @hex.empty
 
@@ -97,7 +106,8 @@ module View
             show_coords: setting_for(:show_coords, @game) && (@role == :map),
             show_tiles: setting_for(:show_tiles, @game) && (@role == :map),
             routes: @routes,
-            game: @game
+            game: @game,
+            revenue_display: revenue_display
           )
         end
         children << h(TriangularGrid) if Lib::Params['grid']

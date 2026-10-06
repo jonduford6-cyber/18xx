@@ -100,7 +100,7 @@ module View
                     { attrs: { transform: "scale(1.5), #{rotation_for_layout}" } },
                     @town.symbol)
                 else
-                  h(Part::SingleRevenue, revenue: revenue, transform: rotation_for_layout)
+                  h(Part::SingleRevenue, revenue: revenue_for_display(revenue), transform: rotation_for_layout)
                 end,
               ]),
             ]),

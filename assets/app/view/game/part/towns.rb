@@ -14,6 +14,7 @@ module View
         needs :region_use
         needs :routes
         needs :show_revenue
+        needs :revenue_display, default: nil
 
         def render
           @tile.towns.each_with_object([]) do |town, rendered|
@@ -22,9 +23,11 @@ module View
             rendered <<
               if town.rect?
                 h(TownRect, town: town, region_use: @region_use, show_revenue: @show_revenue,
+                            revenue_display: @revenue_display,
                             color: value_for(town, :color), width: value_for(town, :width))
               else
                 h(TownDot, town: town, tile: @tile, region_use: @region_use, show_revenue: @show_revenue,
+                           revenue_display: @revenue_display,
                            color: value_for(town, :color), width: value_for(town, :width))
               end
           end

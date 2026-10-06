@@ -9,7 +9,8 @@ module View
         needs :show_revenue
         def render
           @tile.cities.map do |city|
-            h(City, show_revenue: @show_revenue, region_use: @region_use, tile: @tile, city: city)
+            h(City, show_revenue: @show_revenue, region_use: @region_use, tile: @tile, city: city,
+                    revenue_display: @revenue_display)
           end
         end
       end

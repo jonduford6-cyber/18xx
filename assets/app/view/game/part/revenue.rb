@@ -79,6 +79,14 @@ module View
           @hide = stops.any?(&:hide)
           @rows = (@tile.offboards&.first&.rows || 1)
           @revenue = @tile.revenue_to_render.first
+          @revenue = display_value(@revenue) if @revenue_display
+        end
+
+        def display_value(revenue)
+          return revenue_for_display(revenue) if revenue.is_a?(Numeric)
+          return revenue unless revenue.is_a?(Hash)
+
+          revenue.transform_values { |r| revenue_for_display(r) }
         end
 
         def should_render?

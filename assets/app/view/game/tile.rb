@@ -22,10 +22,16 @@ module View
       needs :routes, default: []
       needs :show_coords, default: nil
       needs :show_tiles, default: nil
+      needs :revenue_display, default: nil
 
       # helper method to pass @tile and @region_use to every part
       def render_tile_part(part_class, **kwargs)
         h(part_class, region_use: @region_use, tile: @tile, **kwargs)
+      end
+
+      # only the parts that draw revenue numbers take the opt-in hook
+      def revenue_display_kwargs
+        @revenue_display ? { revenue_display: @revenue_display } : {}
       end
 
       def render_tile_parts_by_loc(part_class, parts: nil, **kwargs)
@@ -76,19 +82,22 @@ module View
         children = []
 
         render_revenue = should_render_revenue?
+        rev_hook = revenue_display_kwargs
         if !@tile.paths.empty? || !@tile.stubs.empty? || !@tile.future_paths.empty?
           children << render_tile_part(Part::Track, routes: @routes)
         end
-        children << render_tile_part(Part::Cities, show_revenue: !render_revenue) unless @tile.cities.empty?
+        children << render_tile_part(Part::Cities, show_revenue: !render_revenue, **rev_hook) unless @tile.cities.empty?
 
-        children << render_tile_part(Part::Towns, routes: @routes, show_revenue: !render_revenue) unless @tile.towns.empty?
+        unless @tile.towns.empty?
+          children << render_tile_part(Part::Towns, routes: @routes, show_revenue: !render_revenue, **rev_hook)
+        end
 
         borders = render_tile_part(Part::Borders) if @tile.borders.any?(&:type)
         # OO tiles have different rules...
         if @tile.location_name && @tile.cities.size > 1 && !@tile.hex.hide_location_name
           rendered_loc_name = render_tile_part(Part::LocationName)
         end
-        revenue = render_tile_part(Part::Revenue) if render_revenue
+        revenue = render_tile_part(Part::Revenue, **rev_hook) if render_revenue
         @tile.labels.each { |l| children << render_tile_part(Part::Label, label: l) }
 
         render_tile_parts_by_loc(

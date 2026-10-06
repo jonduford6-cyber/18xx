@@ -131,7 +131,7 @@ module View
               if @town.halt?
                 h('text.tile__text', { attrs: { transform: "scale(1.5), rotate(#{-angle})" } }, @town.symbol)
               else
-                h(SingleRevenue, revenue: revenue, transform: "rotate(#{-angle})")
+                h(SingleRevenue, revenue: revenue_for_display(revenue), transform: "rotate(#{-angle})")
               end,
               ]),
             ]),

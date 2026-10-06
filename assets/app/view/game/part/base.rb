@@ -7,6 +7,14 @@ module View
         needs :region_use
         needs :tile, default: nil
         needs :loc, default: nil
+        # opt-in: a game may answer display_revenue to change the numbers drawn
+        needs :revenue_display, default: nil
+
+        def revenue_for_display(revenue)
+          return revenue unless @revenue_display
+
+          @revenue_display.call(revenue)
+        end
 
         UPPER_LEFT = [0, 1, 2].freeze
         UPPER_RIGHT = [2, 3, 4].freeze

@@ -505,9 +505,10 @@ module Engine
           recheck_operating_order
         end
 
-        # Optional rule: only two 6-trains
+        # Optional rules: only two 6-trains; four 4-trains
         def num_trains(train)
           return 2 if train[:name] == '6' && optional_rules.include?(:two_six_trains)
+          return 4 if train[:name] == '4' && optional_rules.include?(:four_four_trains)
 
           super
         end

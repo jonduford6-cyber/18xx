@@ -45,6 +45,11 @@ module Engine
             short_name: 'Permanent 5-trains',
             desc: '5-trains never rust; 6-trains rust 3-trains; Diesels rust 4-trains',
           },
+          {
+            sym: :four_four_trains,
+            short_name: 'Four 4-trains',
+            desc: 'There are four 4-trains instead of three.',
+          },
         ].freeze
 
         # At most one merger style (the site's creation form unticks the other)

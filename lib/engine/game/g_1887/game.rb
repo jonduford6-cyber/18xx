@@ -669,7 +669,7 @@ module Engine
             cc = fh.shares.map(&:corporation).find { |c| CONSTRUCTION_COS.include?(c.id) }
             next unless cc
 
-            plain = ->(c) { c.full_name.sub(/ \((FH|CC)\)\z/, '') }
+            plain = ->(c) { "#{c.full_name.sub(/ \((FH|CC)\)\z/, '')} (#{finance_house?(c) ? 'FH' : 'CC'})" }
             company_by_id(sym).desc =
               "40% president's certificate for #{plain.call(fh)}. Purchasing this floats #{plain.call(fh)}; the winning " \
               "bid is paid into its treasury, and the buyer sets its par value. #{plain.call(fh)} itself holds a 20% seed " \

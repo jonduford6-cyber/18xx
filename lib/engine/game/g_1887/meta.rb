@@ -50,6 +50,11 @@ module Engine
             short_name: 'Four 4-trains',
             desc: 'There are four 4-trains instead of three.',
           },
+          {
+            sym: :higher_revenues,
+            short_name: 'Higher revenues',
+            desc: 'Every stop a train counts is worth $10 more, off-boards included.',
+          },
         ].freeze
 
         # At most one merger style (the site's creation form unticks the other)

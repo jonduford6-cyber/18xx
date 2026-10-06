@@ -530,6 +530,19 @@ module Engine
           end
         end
 
+        # Optional rule: higher revenues. Every stop a train counts (city,
+        # town or off-board) is worth $10 more. All revenue sums (the route
+        # screen, the auto-router, dividends, the last run) come through here;
+        # the numbers printed on the tiles do not change.
+        HIGHER_REVENUE_PER_STOP = 10
+
+        def revenue_for(route, stops)
+          revenue = super
+          return revenue unless optional_rules.include?(:higher_revenues)
+
+          revenue + (HIGHER_REVENUE_PER_STOP * stops.size)
+        end
+
         FINANCE_HOUSES = %w[BB HAM MUR].freeze
 
         CONSTRUCTION_COS = %w[BWW J&MC MEIG].freeze

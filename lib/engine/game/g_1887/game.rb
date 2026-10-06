@@ -1299,6 +1299,14 @@ module Engine
 
         # The Lombard Street private closes on purchase; its buyer becomes
         # Lombard Street's owner and acts for it
+        # Player cards: the Lombard Street private closes when it is bought
+        # (its buyer becomes the owner of Lombard Street), so the card lists
+        # it as an extra row for the owner (display only; nobody's holdings change)
+        def player_card_extra_companies(player)
+          ls = company_by_id('LS')
+          ls && lombard&.owner == player ? [ls] : []
+        end
+
         def take_lombard(player, company)
           company.close!
           lombard.owner = player

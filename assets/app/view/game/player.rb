@@ -36,7 +36,11 @@ module View
         ]
 
         if @show_companies
-          divs << h(Companies, owner: @player, game: @game, show_hidden: @show_hidden) if @player.companies.any? || @show_hidden
+          # opt-in (1887): companies shown on the card that the player does not hold (Lombard Street)
+          extra = @game.respond_to?(:player_card_extra_companies) ? @game.player_card_extra_companies(@player) : []
+          if @player.companies.any? || @show_hidden || !extra.empty?
+            divs << h(Companies, owner: @player, game: @game, show_hidden: @show_hidden, extra_companies: extra)
+          end
           divs << h(UnsoldCompanies, owner: @player, game: @game) unless @player.unsold_companies.empty?
           divs << h(HiddenHand, player: @player, game: @game, user: @user) if @game.show_hidden_hand?
         end

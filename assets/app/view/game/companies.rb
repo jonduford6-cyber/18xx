@@ -8,6 +8,7 @@ module View
       needs :game
       needs :owner, default: nil
       needs :show_hidden, default: false
+      needs :extra_companies, default: []
 
       def render
         owned_companies = @owner.companies
@@ -22,6 +23,14 @@ module View
         companies = @game.companies_sort(owned_companies).flat_map do |c|
           h(Company, company: c, layout: :table)
         end
+
+        # opt-in (1887): rows for companies the owner does not hold, with the same columns
+        extra_rows = @extra_companies.flat_map do |c|
+          [h(:div, { attrs: { title: c.desc } }, [h('span.nowrap', c.name)]),
+           @game.show_value_of_companies?(@owner) ? h('div.right', @game.format_currency(@game.company_value(c))) : '',
+           h('div.padded_number', @game.format_currency(c.revenue))]
+        end
+        companies.concat(extra_rows)
 
         table_props = {
           style: {

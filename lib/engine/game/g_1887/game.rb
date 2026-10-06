@@ -1310,6 +1310,20 @@ module Engine
         # Player cards: the Lombard Street private closes when it is bought
         # (its buyer becomes the owner of Lombard Street), so the card lists
         # it as an extra row for the owner (display only; nobody's holdings change)
+        # The operating-order row on the Game tab: a short type tag after the
+        # company's name (display only)
+        def entity_type_tag(entity)
+          return unless entity.corporation?
+
+          if finance_house?(entity)
+            'FH'
+          elsif financial?(entity)
+            'CC'
+          else
+            'RR'
+          end
+        end
+
         def player_card_extra_companies(player)
           ls = company_by_id('LS')
           ls && lombard&.owner == player ? [ls] : []

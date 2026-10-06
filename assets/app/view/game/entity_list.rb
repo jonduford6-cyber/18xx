@@ -86,7 +86,10 @@ module View
             else
               " (#{acting_owner.name.truncate})"
             end
-          children << h(:span, [name, owner])
+          # opt-in (1887): a small tag for the company's type after its name
+          tag = @game.respond_to?(:entity_type_tag) ? @game.entity_type_tag(entity) : nil
+          tag_span = tag ? h(:span, { style: { fontSize: '65%', opacity: '0.7', marginLeft: '0.2rem' } }, tag) : ''
+          children << h(:span, [name, tag_span, owner])
 
           h(:li, entity_props, children)
         end

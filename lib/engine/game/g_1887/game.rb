@@ -92,7 +92,7 @@ module Engine
                                'Baring & Robertson Credit, Petro & Ladd Construction Contract, ' \
                                'Robert Stephenson & Co. Locomotive Order, Henderson Transfer, La Porteña Works, ' \
                                'Anderson Paz Purchase Agreement, La Boca Docks Lease and Estancia Land Grant close ' \
-                               '(Estancia pays its owner $50); Parana Ferry Company stays open but pays no income'],
+                               '(Estancia pays its owner $50); Paraná Ferry Company stays open but pays no income'],
           'kilometric_clawback' => ['Kilometric Guarantee closes',
                                     'A Railway owning it pays the bank $15 per station token'],
           'diesel_bought' => ['Game end',
@@ -116,12 +116,12 @@ module Engine
           'can_buy_companies' =>
             ['Railways may buy private companies',
              'From phase 3 a Railway may buy a private company from the player at the top of its chain. ' \
-             'Most private companies close at phase 5. The Parana Ferry Company stays open and can still be bought.'],
+             'Most private companies close at phase 5. The Paraná Ferry Company stays open and can still be bought.'],
         ).freeze
 
         # The Info tab prints the buying status on phases 3 and 4 only; the
         # phase data itself (read by the engine) keeps it on from phase 3 on,
-        # because the Parana Ferry Company can still be bought later
+        # because the Paraná Ferry Company can still be bought later
         INFO_STATUS_PHASES = %w[3 4].freeze
 
         def info_phase_status(phase)
@@ -618,7 +618,7 @@ module Engine
           0
         end
 
-        # Parana Ferry Company: only a Railway owning it may run a route over
+        # Paraná Ferry Company: only a Railway owning it may run a route over
         # F24 or G21 (the way to the Atlantic Export)
         FERRY_HEXES = %w[F24 G21].freeze
 
@@ -629,7 +629,7 @@ module Engine
           ferry = company_by_id('PFC')
           return if ferry && !ferry.closed? && ferry.owner == route.corporation
 
-          raise GameError, "Only a Railway owning #{ferry&.name || 'the Parana Ferry Company'} may run over F24 or G21"
+          raise GameError, "Only a Railway owning #{ferry&.name || 'the Paraná Ferry Company'} may run over F24 or G21"
         end
 
         # Railways floated at Setup => their fixed starting price

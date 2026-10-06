@@ -123,7 +123,7 @@ module Engine
             color: nil,
           },
           {
-            name: 'Parana Ferry Company',
+            name: 'Paraná Ferry Company',
             sym: 'PFC',
             value: 60,
             revenue: 15,

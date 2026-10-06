@@ -20,7 +20,6 @@ module View
         needs :flash_opts, default: {}, store: true
         needs :user
         needs :before_process_pass, default: -> {}, store: true
-        needs :bid_note_amounts, default: {}, store: true # opt-in (1887): the amount typed, per company
 
         def render
           @round = @game.round
@@ -191,25 +190,14 @@ module View
           return [h(:button, { on: { click: -> { buy(company) } } }, buy_str)] if @step.may_purchase?(company)
           return [h(:button, { on: { click: -> { choose } } }, 'Choose')] if @step.may_choose?(company)
 
-          # opt-in (1887): a step that defines bid_note shows a note under the box, updated as the amount changes
-          input = nil # the handler below reads the box once it is drawn
-          note_text = nil
-          input_events = {}
-          if @step.respond_to?(:bid_note)
-            typed = [@bid_note_amounts[company.sym] || 0, @step.min_bid(company)].max
-            note_text = @step.bid_note(company, typed)
-            input_events = { input: -> { store(:bid_note_amounts, @bid_note_amounts.merge(company.sym => input.JS['elm'].JS['value'].to_i)) } } if note_text
-          end
-          input_props = { style: { marginRight: '1rem' }, props: {
-            value: note_text ? typed : @step.min_bid(company),
-            step: @step.min_increment,
-            min: @step.min_bid(company),
-            max: @step.max_bid(@current_entity, company),
-            type: 'number',
-            size: @current_entity.cash.to_s.size + 2,
-          } }
-          input_props[:on] = input_events unless input_events.empty?
-          input = h(:input, input_props)
+          input = h(:input, style: { marginRight: '1rem' }, props: {
+                      value: @step.min_bid(company),
+                      step: @step.min_increment,
+                      min: @step.min_bid(company),
+                      max: @step.max_bid(@current_entity, company),
+                      type: 'number',
+                      size: @current_entity.cash.to_s.size + 2,
+                    })
 
           buttons = []
           if @step.may_bid?(company) && @step.min_bid(company) <= @step.max_place_bid(@current_entity, company)
@@ -227,7 +215,7 @@ module View
 
           return [] if buttons.empty?
 
-          [input, *buttons, *(note_text ? [h(:div, { style: { marginTop: '0.4rem', fontSize: '90%' } }, note_text)] : [])]
+          [input, *buttons]
         end
 
         def render_move_bid_buttons(company, input)

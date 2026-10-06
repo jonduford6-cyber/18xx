@@ -155,7 +155,7 @@ module Engine
         CORPORATIONS = [
           {
             sym: 'BAGS',
-            name: 'Buenos Aires Great Southern (RW)',
+            name: 'Buenos Aires Great Southern (RR)',
             logo: '1887/BAGS',
             float_percent: 20,
             always_market_price: true,
@@ -166,7 +166,7 @@ module Engine
           },
           {
             sym: 'BAWR',
-            name: 'Buenos Aires Western (RW)',
+            name: 'Buenos Aires Western (RR)',
             logo: '1887/BAWR',
             float_percent: 20,
             always_market_price: true,
@@ -177,7 +177,7 @@ module Engine
           },
           {
             sym: 'SFW',
-            name: 'Santa Fe Western (RW)',
+            name: 'Santa Fe Western (RR)',
             logo: '1887/SFW',
             float_percent: 20,
             capitalization: :incremental,
@@ -190,7 +190,7 @@ module Engine
           },
           {
             sym: 'BBNW',
-            name: 'Bahia Blanca & North Western (RW)',
+            name: 'Bahia Blanca & North Western (RR)',
             logo: '1887/BBNW',
             float_percent: 20,
             capitalization: :incremental,
@@ -202,7 +202,7 @@ module Engine
           },
           {
             sym: 'ANW',
-            name: 'Argentine North Western (RW)',
+            name: 'Argentine North Western (RR)',
             logo: '1887/ANW',
             float_percent: 20,
             capitalization: :incremental,
@@ -214,7 +214,7 @@ module Engine
           },
           {
             sym: 'BAP',
-            name: 'Buenos Aires & Pacific (RW)',
+            name: 'Buenos Aires & Pacific (RR)',
             logo: '1887/BAP',
             float_percent: 20,
             capitalization: :incremental,
@@ -226,7 +226,7 @@ module Engine
           },
           {
             sym: 'ER',
-            name: 'Entre Rios Railway (RW)',
+            name: 'Entre Rios Railway (RR)',
             logo: '1887/ER',
             float_percent: 20,
             capitalization: :incremental,

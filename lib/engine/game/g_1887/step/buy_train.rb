@@ -22,11 +22,13 @@ module Engine
         #     sells with the standard sell buttons and contributes the rest
         #     when buying; a player who cannot cover declares bankruptcy
         #     (the standard button; see Step::Bankrupt).
-        # Instead of the depot train, the Railway may buy the train of another
-        # Railway the SAME player controls (rulebook 8.8) at an agreed price of
-        # $1 or more (the standard list), the player's contribution not capped
-        # at face value. A Railway whose top player is someone else always
-        # refuses: its trains are not offered and cannot be bought.
+        # Instead of the depot train, the Railway may buy another Railway's
+        # train (rulebook 8.8) at an agreed price of $1 or more (the standard
+        # list), the player's contribution not capped at face value. Another
+        # player's Railway sells only if its president agrees: the standard
+        # screen asks the buyer to confirm that consent. Such a train never
+        # blocks bankruptcy (its president could always refuse); only trains
+        # of Railways the same player controls do.
         # Nobody sells more than is needed; no sale changes the Railway's
         # presidency.
         class BuyTrain < Engine::Step::BuyTrain
@@ -82,25 +84,6 @@ module Engine
             tier = company.owner
             tier = tier.owner while tier&.corporation?
             tier&.minor? ? tier.owner : tier
-          end
-
-          # Only trains of Railways the buyer's own player controls (8.8)
-          def other_trains(entity)
-            mine = controlling_player(entity)
-            return [] unless mine
-
-            super.select { |t| t.owner.corporation? && controlling_player(t.owner) == mine }
-          end
-
-          # A hand-made action may not take a train from a Railway another
-          # player controls (the standard check also admits every other
-          # Railway's train)
-          def check_seller(railway, train)
-            seller = train.owner
-            return if !seller.corporation? || other_trains(railway).include?(train)
-
-            raise GameError, "#{seller.name} refuses to sell its train to #{railway.name}: only Railways " \
-                             'the same player controls may trade trains'
           end
 
           # The tier the call has reached: the Railway's president, or higher
@@ -297,10 +280,10 @@ module Engine
 
           # The player at the top cannot cover what is still missing for the
           # cheapest depot train, even after selling everything they may, and
-          # no other Railway has a train on offer
+          # no Railway the same player controls has a train on offer (rivals' trains never count)
           def player_cannot_cover?(player, railway)
             return false if !railway&.corporation? || !player_stage?(railway) || player != top_player(railway)
-            return false if buyable_trains(railway).any? { |t| t.owner != @depot }
+            return false if buyable_trains(railway).any? { |t| t.owner != @depot && controlling_player(t.owner) == player }
 
             value = @game.legal_bundles(player)
                          .reject { |some| changes_presidency?(railway, player, some) }
@@ -314,7 +297,6 @@ module Engine
           # player contributes what its treasury lacks, with no cap
           def process_buy_train(action)
             railway = action.entity
-            check_seller(railway, action.train)
             from_depot = action.train.owner == @depot
             settle!(railway)
             need = action.price - railway.cash

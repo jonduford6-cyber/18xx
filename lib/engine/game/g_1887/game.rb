@@ -904,9 +904,15 @@ module Engine
           [2, 3, 4][tier(entity)]
         end
 
-        # The charters not started (or retired) that nobody owns
+        # The "Not Started" band of the Stock Round: only the companies the
+        # acting player may start now (Step::BuySellParShares#startable_now),
+        # in the usual order
         def stock_not_started
-          sorted_corporations.reject { |c| c.closed? || c.owner }
+          step = @round.active_step if @round.is_a?(Engine::Round::Stock)
+          return [] unless step.respond_to?(:startable_now)
+
+          list = step.startable_now(step.current_entity)
+          sorted_corporations.select { |c| list.include?(c) && !c.closed? && !c.owner }
         end
 
         # The next operating order: [company, waiting for its marker]
@@ -1096,10 +1102,17 @@ module Engine
           check_presidency(company)
         end
 
-        # Unstarted Construction Companies and startable Railways (never BAGS
-        # or BAWR; Entre Rios from phase 4)
+        # Unstarted Construction Companies, the never-started Railways (SFW,
+        # BB&NW, ANW, BA&P and Entre Rios) only from the first 4-train, as a
+        # player may, and any retired Railway (never BAGS or BAWR unless a
+        # merger has retired them)
         def lombard_startable_companies
-          startable_construction_companies + startable_railways
+          startable_construction_companies + lombard_startable_railways
+        end
+
+        def lombard_startable_railways
+          fresh = @phase.available?('4') ? (SEED_RAILWAYS + %w[ER]).map { |id| corporation_by_id(id) } : []
+          fresh.select { |c| c.presidents_share.owner == c && !c.retired } + restartable_railways
         end
 
         def can_par?(corporation, entity)
@@ -1195,9 +1208,10 @@ module Engine
         NO_SUBSIDY = %w[ER].freeze
 
         # 3.3 / 13.3: companies a player may start in a Stock Round as their
-        # buy (Entre Rios from phase 4, while unstarted); the mechanism is
-        # meant to be reused for restarting a retired Railway
-        PLAYER_STARTABLE = %w[ER].freeze
+        # buy: from phase 4 (the first 4-train) any Railway never started
+        # (the four seed Railways and Entre Rios); a retired Railway may
+        # restart at any time (see restartable_railways)
+        PLAYER_STARTABLE = %w[SFW BBNW ANW BAP ER].freeze
         FOUNDING_FLOAT_POOL = 40 # floats when 60% has been sold
         FOUNDING_CAPITAL = 10 # the bank pays 10 x par at the float
 

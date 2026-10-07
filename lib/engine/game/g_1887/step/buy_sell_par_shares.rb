@@ -236,6 +236,15 @@ module Engine
             @game.lombard_startable_companies.select { |c| @game.control_ok?(lombard, c, c.presidents_share.percent) } # 10.6
           end
 
+          # What the "Not Started" band shows the acting player: only what
+          # they may start now, by themselves or through Lombard Street
+          def startable_now(entity)
+            return [] if !entity || !entity.player? || entity != current_entity
+
+            own = bought? ? [] : @game.player_startable(entity) + @game.restartable_finance_houses(entity)
+            (own + lombard_startable(entity)).uniq
+          end
+
           # A player starts a company as their buy for the turn (3.3)
           def process_player_start(action)
             entity = action.entity

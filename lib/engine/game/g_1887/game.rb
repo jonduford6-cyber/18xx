@@ -218,6 +218,12 @@ module Engine
           player.companies.select { |c| CORPORATE_PURCHASABLE.include?(c.id) && !c.closed? }
         end
 
+        # Buy Companies panel (opt-in): the privates the Railway may buy, all
+        # shown directly; only the player at the top of its chain owns them
+        def buy_company_panel_companies(entity)
+          purchasable_companies(entity)
+        end
+
         def purchasing_player(entity)
           top = control_actor(entity)
           top = top.owner if top&.minor? # Lombard Street: its owner

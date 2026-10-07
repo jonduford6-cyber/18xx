@@ -36,12 +36,15 @@ module View
           },
         }
 
-        companies = @game.purchasable_companies.sort_by do |company|
-          [!owned_by_other_player?(@corporation.owner, company) ? 0 : 1, company.value]
+        # opt-in: a game that defines buy_company_panel_companies lists exactly
+        # the companies the buyer may buy, all shown directly (none hidden)
+        direct = direct_companies
+        companies = (direct || @game.purchasable_companies).sort_by do |company|
+          [!direct && owned_by_other_player?(@corporation.owner, company) ? 1 : 0, company.value]
         end
 
         companies_to_buy = companies.map do |company|
-          if owned_by_other_player?(@corporation.owner, company) && !@show_other_players
+          if !direct && owned_by_other_player?(@corporation.owner, company) && !@show_other_players
             hidden_companies = true
             next
           end
@@ -62,12 +65,20 @@ module View
           companies_to_buy << h('button.no_margin',
                                 { on: { click: -> { store(:show_other_players, true) } }, **button_props },
                                 'Show companies from other players')
-        elsif @show_other_players
+        elsif @show_other_players && !direct
           companies_to_buy << h('button.no_margin',
                                 { on: { click: -> { store(:show_other_players, false) } }, **button_props },
                                 'Hide companies from other players')
         end
         companies_to_buy.compact
+      end
+
+      def direct_companies
+        return nil unless @game.respond_to?(:buy_company_panel_companies)
+
+        @game.buy_company_panel_companies(@corporation)
+      rescue StandardError
+        nil
       end
 
       def render_input

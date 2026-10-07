@@ -10,18 +10,23 @@ module Engine
         # Buying trains (11.8, 11.9, 12), in the site's standard format. A
         # Railway with a route and no train must buy the cheapest train in
         # the depot. If it cannot pay, the money is raised one tier at a time
-        # (as 1841 does for chains of corporations):
-        #  1. the Railway issues as many certificates as needed, or all it
-        #     can (the standard emergency Issue panel);
+        # (as 1841 does for chains of corporations). Nobody issues shares to
+        # raise money for a train (8.9); only the option Legacy emergency
+        # issue keeps the old rule (see legacy_issue?, for recorded games):
+        #  1. (legacy only) the Railway issues as many certificates as
+        #     needed, or all it can (the standard emergency Issue panel);
         #  2. a corporation president's treasury is swept into the Railway
-        #     (a gift); it then issues, or sells certificates it holds, in
-        #     the same panel, each sale swept in at once; when it has nothing
-        #     left, its price moves one space left and the call climbs to its
-        #     own president (settle!, automatic, with log lines);
+        #     (a gift); it then sells certificates it holds in other
+        #     companies (legacy: or issues its own), in the same panel, each
+        #     sale swept in at once; when it has nothing left, its price
+        #     moves one space left and the call climbs to its own president
+        #     (settle!, automatic, with log lines);
         #  3. Lombard Street's treasury is swept in; the player at the top
-        #     sells with the standard sell buttons and contributes the rest
-        #     when buying; a player who cannot cover declares bankruptcy
-        #     (the standard button; see Step::Bankrupt).
+        #     pays cash, sells with the standard sell buttons and contributes
+        #     the rest when buying; a player who cannot cover declares
+        #     bankruptcy (the standard button; see Step::Bankrupt). Only a
+        #     player can: the button belongs to the Railway's emergency and
+        #     is offered only once the call has reached a player.
         # Instead of the depot train, the Railway may buy another Railway's
         # train (rulebook 8.8) at an agreed price of $1 or more (the standard
         # list), the player's contribution not capped at face value. Another
@@ -109,8 +114,14 @@ module Engine
             top_player(railway)
           end
 
+          # The option Legacy emergency issue: the old rule, as recorded games
+          # were played (the emergency Issue)
+          def legacy_issue?
+            @game.optional_rules.include?(:legacy_emergency_issue)
+          end
+
           def railway_issue_pending?(railway)
-            !@issued && !railway_issue_bundle(railway).empty?
+            legacy_issue? && !@issued && !railway_issue_bundle(railway).empty?
           end
 
           def player_stage?(railway)
@@ -152,7 +163,7 @@ module Engine
             need = shortfall(railway) - corporation.cash
             return [] unless need.positive?
 
-            own = @game.reissuable_shares(corporation)
+            own = legacy_issue? ? @game.reissuable_shares(corporation) : []
             issues = (1..own.size).map { |n| own.first(n) }
             sales = @game.legal_bundles(corporation).reject { |some| changes_presidency?(railway, corporation, some) }
             (issues + sales).select { |some| no_more_than_needed?(some, need) }
@@ -222,10 +233,15 @@ module Engine
 
           def issue_text(railway)
             tier = railway_issue_pending?(railway) ? railway : payer(railway)
-            tier == railway ? 'Emergency Issue' : "#{tier.name} Emergency Issue or Sell (for #{railway.name})"
+            return 'Emergency Issue' if tier == railway
+            return "#{tier.name} Emergency Issue or Sell (for #{railway.name})" if legacy_issue?
+
+            "#{tier.name} Emergency Sale (for #{railway.name})"
           end
 
           def issue_verb(railway)
+            return 'sell' unless legacy_issue?
+
             railway_issue_pending?(railway) ? 'issue' : 'issue or sell'
           end
 
@@ -246,6 +262,8 @@ module Engine
 
             owner = bundle.owner
             if owner == bundle.corporation
+              raise GameError, 'Nobody issues shares to raise money for a train' unless legacy_issue?
+
               @game.issue_shares(owner, bundle.shares)
               @issued = true if owner == railway
             else

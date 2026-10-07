@@ -61,6 +61,12 @@ module Engine
             desc: 'With two players, only two Charters are auctioned; the third Finance House starts retired and may be ' \
                   'started later. Ignored with three or four players.',
           },
+          {
+            sym: :legacy_emergency_issue,
+            short_name: 'Legacy emergency issue',
+            desc: 'In an emergency train purchase, corporations may issue shares to raise money (the old rule). ' \
+                  'Without this option nobody issues shares in an emergency.',
+          },
         ].freeze
 
         # At most one merger style (the site's creation form unticks the other)

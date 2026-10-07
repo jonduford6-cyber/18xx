@@ -791,10 +791,10 @@ module Engine
 
             plain = ->(c) { "#{c.full_name.sub(/ \((FH|CC)\)\z/, '')} (#{finance_house?(c) ? 'FH' : 'CC'})" }
             company_by_id(sym).desc =
-              "40% president's certificate for #{plain.call(fh)}. Purchasing this floats #{plain.call(fh)}; the winning " \
-              "bid is paid into its treasury, and the buyer sets its par value. #{plain.call(fh)} itself holds a 20% seed " \
-              "share in #{plain.call(cc)} (#{cc.name}). It belongs to the Finance House, not to the buyer. " \
-              'Closes upon receipt of charter.'
+              "Gives its buyer the 40% president's certificate of #{plain.call(fh)}. #{plain.call(fh)} floats at once: " \
+              'the winning bid is paid into its treasury, and its par is the highest par not above half the winning ' \
+              "bid. #{plain.call(fh)} keeps its 20% seed certificate in #{plain.call(cc)} (#{cc.name}); the buyer gets " \
+              'none of it. Closes at the start of the first Stock Round. Until then it counts toward no limit and no score.'
           end
         end
 

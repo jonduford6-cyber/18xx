@@ -10,7 +10,8 @@ module Engine
         # Kilometric Guarantee pays what the Railway could not. This step
         # exists only while a president must sell shares to raise that money
         # (Game#kilometric_debt is set); otherwise it never blocks. Selling
-        # follows emergency money: ordinary certificates only, within the pool
+        # follows emergency money: ordinary certificates only (or ONE share
+        # for a president who holds only the certificate), within the pool
         # limit, never the needy Railway's presidency, no more than needed.
         # If the president cannot cover it even after selling everything, the
         # game has already ended in bankruptcy (Game#kilometric_president_pays).
@@ -63,8 +64,25 @@ module Engine
             end
           end
 
+          # ONE share of a president who holds only the certificate (5.4, 5.7:
+          # the certificate is exchanged at once, as in the train emergency);
+          # never of the needy Railway, whose presidency would change (8.9)
+          def single_options
+            return [] unless debt
+
+            player = debt[:player]
+            return [] unless need.positive?
+
+            @game.single_share_bundles(player).reject { |some| some.first.corporation == debt[:railway] }
+          end
+
           def can_sell?(entity, bundle)
             return false if !debt || entity != debt[:player] || bundle.owner != entity
+
+            if bundle.partial?
+              return @game.single_share_bundle?(entity, bundle) &&
+                     single_options.any? { |some| some.first == bundle.shares.first }
+            end
 
             return false unless bundle.shares.all? { |sh| sh.owner == entity && sh.buyable && !sh.president }
 
@@ -80,11 +98,11 @@ module Engine
               raise GameError, "Cannot sell #{bundle.percent}% of #{bundle.corporation.name} now"
             end
 
-            @game.sell_bundle(bundle.shares)
+            @game.sell_bundle(bundle.shares, one: bundle.partial?)
             player = debt[:player]
             if player.cash >= debt[:rest]
               @game.kilometric_pay!(player, debt[:railway], debt[:rest])
-            elsif options.empty?
+            elsif options.empty? && single_options.empty?
               # nothing left to sell that would help: bankrupt (8.10)
               @game.kilometric_bankrupt!(player, debt[:railway], debt[:rest])
             end

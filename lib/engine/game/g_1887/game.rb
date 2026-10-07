@@ -361,7 +361,24 @@ module Engine
         def kilometric_sellable_value(player, railway)
           kilometric_bundles(player, railway)
             .group_by { |some| some.first.corporation }
-            .sum { |corporation, bundles| corporation.share_price.price * bundles.map(&:size).max }
+            .sum { |corporation, bundles| corporation.share_price.price * bundles.map(&:size).max } +
+            kilometric_single_value(player, railway)
+        end
+
+        # ONE share of each company where the player holds only the president's
+        # certificate (never the needy Railway's own: its presidency would
+        # change). The exchange hands the seller two ordinary shares, so the
+        # second one counts too (one row lower) when the pool takes both.
+        def kilometric_single_value(player, railway)
+          single_share_bundles(player).reject { |some| some.first.corporation == railway }.sum do |some|
+            corporation = some.first.corporation
+            price = corporation.share_price
+            value = price.price
+            lower = share_pool.fit_in_bank?(ShareBundle.new(some)) &&
+                    @stock_market.share_price(@stock_market.down(corporation, price.coordinates))
+            value += lower.price if lower
+            value
+          end
         end
 
         def kilometric_bundles(player, railway)

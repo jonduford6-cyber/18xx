@@ -1291,6 +1291,13 @@ module Engine
         # the starter takes the president's certificate. The price marker
         # waits beside the market until the next Operating Round (11.1), so
         # the new company cannot operate, or be traded, before then.
+        # The bank subsidy a start gets (par x 1); none for Entre Rios or a
+        # restarted company. The same test start_company makes, asked
+        # beforehand for the starting-panel note.
+        def start_subsidy(company, par)
+          NO_SUBSIDY.include?(company.id) || company.retired || company.restarted ? 0 : par.price
+        end
+
         def start_company(starter, company, amount, payers: [[starter, amount]])
           company.restart! if company.retired
           par = finance_house_par(amount)

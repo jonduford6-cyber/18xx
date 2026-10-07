@@ -95,6 +95,41 @@ module Engine
             entity.cash
           end
 
+          # Two short lines under the amount box (display only; the start
+          # itself is untouched): what the starter has, and what the typed
+          # amount would give, by Game#start_company's own rule: the new
+          # company pars at the highest par not above half the amount, starts
+          # with the whole amount plus the one-time bank subsidy of one par
+          # (Game#start_subsidy; none for Entre Rios or a restarted company).
+          # Returns [cash line, preview line], or nil; never raises.
+          def start_note(company, amount)
+            entity = current_entity
+            return if !entity&.corporation? || !@game.financial?(entity) || !company&.corporation?
+
+            fmt = ->(v) { @game.format_currency(v) }
+            amount = amount.to_i
+            preview =
+              if amount < START_MIN
+                "The amount must be at least #{fmt[START_MIN]}"
+              elsif !(amount % min_increment).zero?
+                "The amount must be a multiple of #{fmt[min_increment]}"
+              elsif amount > entity.cash
+                "The amount must not be more than #{entity.name}'s treasury"
+              else
+                par = @game.finance_house_par(amount)
+                subsidy = @game.start_subsidy(company, par)
+                starts = if subsidy.positive?
+                           "#{fmt[amount + subsidy]} (#{fmt[amount]} plus a #{fmt[subsidy]} bank subsidy)"
+                         else
+                           "#{fmt[amount]} (no bank subsidy)"
+                         end
+                "At #{fmt[amount]} #{company.name} pars at #{fmt[par.price]} and starts with #{starts}"
+              end
+            ["#{entity.name} has #{fmt[entity.cash]}", preview]
+          rescue StandardError
+            nil
+          end
+
           def process_bid(action)
             entity = action.entity
             company = action.corporation

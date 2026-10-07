@@ -48,7 +48,7 @@ module View
             end
           end
 
-          if @selected_entity.owner == @corporation.owner || !@selected_entity.owner
+          if @selected_entity.owner == @corporation.owner || !@selected_entity.owner || !consent_needed?
             buy.call
           else
             check_consent(@corporation, @selected_entity.owner, buy)
@@ -66,6 +66,16 @@ module View
           input,
           h(:button, { on: { click: buy_click } }, 'Buy'),
         ])
+      end
+
+      # opt-in: a game that defines consent_needed?(seller, buyer) decides
+      # whether the seller must be asked (1887: not for the same player)
+      def consent_needed?
+        return true unless @game.respond_to?(:consent_needed?)
+
+        @game.consent_needed?(@selected_entity.owner, @corporation)
+      rescue StandardError
+        true
       end
     end
   end

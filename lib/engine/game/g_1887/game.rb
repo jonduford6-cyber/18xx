@@ -224,6 +224,16 @@ module Engine
           purchasable_companies(entity)
         end
 
+        # Standard consent prompt (opt-in): nobody is asked when the seller is
+        # the player at the top of the buying company's chain
+        def consent_needed?(seller, buyer)
+          return true unless seller&.player?
+
+          top_player(buyer) != seller
+        rescue StandardError
+          true
+        end
+
         def purchasing_player(entity)
           top = control_actor(entity)
           top = top.owner if top&.minor? # Lombard Street: its owner

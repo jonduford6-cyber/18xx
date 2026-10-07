@@ -637,6 +637,7 @@ module Engine
           deal_seed_certificates
           deal_corporate_seeds
           name_charter_seeds
+          retire_unauctioned_house
           PREFLOATED.each { |id, price| prefloat(corporation_by_id(id), price) }
           seed_lombard
         end
@@ -672,6 +673,33 @@ module Engine
 
         def two_players?
           @players.size == 2
+        end
+
+        # Option two_player_retired_chain, two players only: one Finance
+        # House (chosen at random from the game's seed, when the companies are
+        # made) is not auctioned and starts retired. Its Charter is left out.
+        attr_reader :retired_at_start
+
+        def init_companies(players)
+          companies = super
+          return companies unless players.size == 2 && optional_rules.include?(:two_player_retired_chain)
+
+          @retired_at_start = FINANCE_HOUSES[rand % FINANCE_HOUSES.size]
+          companies.reject { |c| c.id == CHARTERS.key(@retired_at_start) }
+        end
+
+        # The Finance House left out of the auction is set up exactly as a
+        # merger leaves a retired one (Corporation#retire!: no president, no
+        # marker, no treasury); all its certificates, its 40% president's
+        # certificate and the 20% seed it holds in its Construction Company
+        # included, wait in its own treasury. A player starts it again with
+        # restart_finance_house! (at least $120 into its treasury)
+        def retire_unauctioned_house
+          house = @retired_at_start && corporation_by_id(@retired_at_start)
+          return unless house
+
+          house.retire!
+          @log << "#{house.full_name} is not auctioned and starts retired; a player may start it again in a Stock Round"
         end
 
         def lombard
@@ -774,7 +802,7 @@ module Engine
         # the third Finance House's seed stays in its treasury.
         def deal_seed_certificates
           players = @players.sort_by { rand }
-          FINANCE_HOUSES.zip(players) do |id, player|
+          (FINANCE_HOUSES - [@retired_at_start]).zip(players) do |id, player|
             give_seed(player, corporation_by_id(id)) if player
           end
           give_seed(players[3], corporation_by_id('BAGS')) if players[3]
@@ -793,6 +821,8 @@ module Engine
         # after the deal)
         def name_charter_seeds
           CHARTERS.each do |sym, fh_id|
+            next unless company_by_id(sym)
+
             fh = corporation_by_id(fh_id)
             cc = fh.shares.map(&:corporation).find { |c| CONSTRUCTION_COS.include?(c.id) }
             next unless cc
@@ -1853,7 +1883,7 @@ module Engine
         # A Charter held by a player: it has done its work and counts for
         # nothing until it closes
         def open_charters
-          CHARTERS.keys.map { |id| company_by_id(id) }.select { |c| c.owner && !c.closed? }
+          CHARTERS.keys.filter_map { |id| company_by_id(id) }.select { |c| c.owner && !c.closed? }
         end
 
         def close_charters!

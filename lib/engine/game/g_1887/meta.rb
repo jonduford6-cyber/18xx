@@ -32,7 +32,7 @@ module Engine
             sym: :contested_merger,
             short_name: 'Contested merger',
             desc: 'Mergers are proposed in a Merger Round after each Operating Round set and decided by a vote of the ' \
-                  'shareholders, instead of the friendly merger. Not with Purchase of control.',
+                  'shareholders, instead of the friendly merger. Not with Purchase of control. With two players the friendly merger is used.',
           },
           {
             sym: :purchase_of_control,
@@ -54,6 +54,12 @@ module Engine
             sym: :higher_revenues,
             short_name: 'Higher revenues',
             desc: 'Every stop a train counts is worth $10 more, off-boards included.',
+          },
+          {
+            sym: :two_player_retired_chain,
+            short_name: 'Two players: third chain retired (prototype)',
+            desc: 'With two players, only two Charters are auctioned; the third Finance House starts retired and may be ' \
+                  'started later. Ignored with three or four players.',
           },
         ].freeze
 

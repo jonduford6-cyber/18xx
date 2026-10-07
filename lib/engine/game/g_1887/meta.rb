@@ -15,7 +15,7 @@ module Engine
         # the rulebook, served by the site from public/rules (a relative path: it works on every host)
         GAME_RULES_URL = 'https://1887game.com/rules/1887_rules.pdf'
 
-        PLAYER_RANGE = [3, 4].freeze
+        PLAYER_RANGE = [2, 4].freeze
 
         OPTIONAL_RULES = [
           {

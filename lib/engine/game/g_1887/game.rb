@@ -36,14 +36,14 @@ module Engine
         # president's contribution is not capped at face value
         EBUY_FROM_OTHERS = :always
 
-        CERT_LIMIT = { 3 => 20, 4 => 16 }.freeze
+        CERT_LIMIT = { 2 => 20, 3 => 20, 4 => 16 }.freeze
 
         # 5.3 / 5.4: selling is allowed in every Stock Round, the first one
         # included; a turn is sell, buy one certificate, then sell again
         SELL_AFTER = :any_time
         SELL_BUY_ORDER = :sell_buy_sell
 
-        STARTING_CASH = { 3 => 700, 4 => 520 }.freeze
+        STARTING_CASH = { 2 => 1050, 3 => 700, 4 => 520 }.freeze
 
         # The top-right cell (516) is marked 'e': reaching it ends the game.
         MARKET = [
@@ -627,6 +627,9 @@ module Engine
           end
 
           super
+          if two_players? && optional_rules.include?(:contested_merger)
+            @log << 'Contested merger needs three or more players; the friendly merger is used.'
+          end
           # 2: the seating order, as the players were seated when the game
           # began (a list of ids nothing re-sorts: @players is re-sorted into
           # priority order after the auction and every Stock Round)
@@ -665,6 +668,10 @@ module Engine
         def init_minors
           [G1887::Minor.new(sym: 'Lombard', name: 'Lombard Street', tokens: [],
                             color: '#1f3a5f', text_color: '#ffffff')]
+        end
+
+        def two_players?
+          @players.size == 2
         end
 
         def lombard
@@ -763,11 +770,12 @@ module Engine
         end
 
         # One 20% seed in each Finance House to a random player;
-        # with 4 players the one left over gets a 10% BAGS seed.
+        # with 4 players the one left over gets a 10% BAGS seed. With 2 players
+        # the third Finance House's seed stays in its treasury.
         def deal_seed_certificates
           players = @players.sort_by { rand }
           FINANCE_HOUSES.zip(players) do |id, player|
-            give_seed(player, corporation_by_id(id))
+            give_seed(player, corporation_by_id(id)) if player
           end
           give_seed(players[3], corporation_by_id('BAGS')) if players[3]
         end
@@ -1353,6 +1361,7 @@ module Engine
         # action), :contested (a Merger Round with a vote) or :control (a
         # Merger Round with an auction for control)
         def merge_style
+          return :friendly if two_players? # a vote of two can tie
           return :contested if optional_rules.include?(:contested_merger)
           return :control if optional_rules.include?(:purchase_of_control)
 

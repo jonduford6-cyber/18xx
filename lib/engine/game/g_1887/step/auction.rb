@@ -12,6 +12,11 @@ module Engine
         # auctioneer offers an item from their own pile, and only the two
         # players to their left may bid. If both pass, the next player after
         # them is forced to buy at face value.
+        #
+        # Two players (a placeholder until a better auction is designed): the
+        # other player bids first or passes; if he passes the auctioneer takes
+        # the item at face value; if he bids, the two alternate raises until
+        # one passes and the last bidder wins at his bid.
         class Auction < Engine::Step::Base
           include Engine::Step::Auctioner
           BID_ACTIONS = %w[bid pass].freeze
@@ -27,7 +32,11 @@ module Engine
             @companies.empty?
           end
 
-          def pile_size
+          # 2 players: the first auctioneer gets the larger pile, so the two
+          # take turns to the very last item
+          def pile_size(player = nil, first = nil)
+            return @companies.size.fdiv(2).send(player == first ? :ceil : :floor) if entities.size == 2
+
             entities.size == 3 ? 5 : 4
           end
 
@@ -35,14 +44,17 @@ module Engine
             setup_auction
             @companies = @game.companies.sort_by { @game.rand }
 
-            entities.each_with_index do |player, i|
-              pile = @companies[i * pile_size, pile_size]
+            first = entities[@game.rand % entities.size]
+            from = 0
+            entities.each do |player|
+              size = pile_size(player, first)
+              pile = @companies[from, size]
+              from += size
               @log << "Offer pile for #{player.name}: " \
                       "#{pile.map(&:name).join(', ')}"
               player.unsold_companies.concat(pile)
             end
 
-            first = entities[@game.rand % entities.size]
             @log << "#{first.name} is the first auctioneer"
             @game.first_auctioneer = first
             @round.goto_entity!(first)
@@ -77,6 +89,7 @@ module Engine
             @player1 = entities[(entity_index + 1) % entities.size]
             @player2 = entities[(entity_index + 2) % entities.size]
             @receiver = entities[(entity_index + 3) % entities.size]
+            @player2 = @receiver = player if two_players? # the auctioneer answers the other player's bid
             @auctioning = company
             @player1.unpass!
             @player2.unpass!
@@ -94,7 +107,7 @@ module Engine
             player.pass!
 
             return win_item(highest_bid(@auctioning)) unless @bids[@auctioning].empty?
-            return force_item(@auctioning) if @player1.passed? && @player2.passed?
+            return force_item(@auctioning) if @player1.passed? && (two_players? || @player2.passed?)
 
             next_bidder!
           end
@@ -171,6 +184,10 @@ module Engine
 
           private
 
+          def two_players?
+            entities.size == 2
+          end
+
           def add_bid(bid)
             super
             @log << "#{bid.entity.name} bids " \
@@ -206,7 +223,7 @@ module Engine
               reason = ' (richest player)'
             end
 
-            @log << "#{buyer.name} is forced to buy #{company.name} for " \
+            @log << "#{buyer.name} #{two_players? && !reason ? 'takes' : 'is forced to buy'} #{company.name} for " \
                     "#{@game.format_currency(value)}#{reason}"
             assign_item(buyer, company, value)
             end_auction!

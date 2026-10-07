@@ -959,6 +959,7 @@ module Engine
         end
 
         def stock_round
+          close_charters! # 4.2: the Charters close when the first Stock Round starts
           Engine::Round::Stock.new(self, [
             G1887::Step::HomeToken,
             Engine::Step::DiscardTrain,
@@ -1686,7 +1687,8 @@ module Engine
         end
 
         def player_value(player)
-          value = player.cash + player.shares.sum { |sh| certificate_value(sh) } + player.companies.sum(&:value)
+          value = player.cash + player.shares.sum { |sh| certificate_value(sh) } +
+                  player.companies.reject { |c| CHARTERS.key?(c.id) }.sum(&:value)
           actors = [player]
           if lombard&.owner == player
             value += lombard.cash + lombard.shares.sum { |sh| certificate_value(sh) }
@@ -1828,9 +1830,26 @@ module Engine
           @bank.spend(price, fh)
           @log << "#{fh.name} receives #{format_currency(price)} " \
                   "(the winning bid for #{charter.name})"
+          # 4.2, 14.1: the Charter stays on its owner's card (no income, no
+          # certificate, no value) until the first Stock Round starts
+        end
 
-          charter.close!
-          @log << "#{charter.name} closes"
+        # A Charter held by a player: it has done its work and counts for
+        # nothing until it closes
+        def open_charters
+          CHARTERS.keys.map { |id| company_by_id(id) }.select { |c| c.owner && !c.closed? }
+        end
+
+        def close_charters!
+          open_charters.each do |charter|
+            charter.close!
+            @log << "#{charter.name} closes"
+          end
+        end
+
+        # A Charter held on a player card is not a certificate
+        def num_certs(entity)
+          super - entity.companies.count { |c| CHARTERS.key?(c.id) && !c.closed? }
         end
 
         # Highest par price not above half the winning bid

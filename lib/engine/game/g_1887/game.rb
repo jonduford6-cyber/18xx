@@ -266,6 +266,13 @@ module Engine
                   "(#{tokens} station token#{tokens == 1 ? '' : 's'} x #{format_currency(per)})"
         end
 
+        # 14.4, start of phase 6: the Railway pays what it has, up to $15 per
+        # station token; its president (the player at the top of its chain)
+        # pays the rest from personal cash. If the cash is not enough, the
+        # president sells shares (Step::KilometricPayment, only in that case);
+        # if even that cannot cover it, the president is bankrupt (8.10).
+        attr_reader :kilometric_debt
+
         def event_kilometric_clawback!
           kg = company_by_id('KG')
           return if !kg || kg.closed?
@@ -279,9 +286,63 @@ module Engine
             short = paid < due ? ", all its cash; #{format_currency(due)} due" : ''
             @log << "#{railway.name} pays the bank #{format_currency(paid)} for #{kg.name} " \
                     "(#{tokens} station token#{tokens == 1 ? '' : 's'} x #{format_currency(KILOMETRIC)}#{short})"
+            kilometric_president_pays(railway, due - paid, kg) if paid < due
           end
           kg.close!
           @log << "#{kg.name} closes"
+        end
+
+        # The player at the top of a corporation's chain (Lombard Street's
+        # owner for a chain ending there); nil if nobody controls it
+        def chain_player(corporation)
+          tier = corporation.owner
+          tier = tier.owner while tier&.corporation?
+          tier&.minor? ? tier.owner : tier
+        end
+
+        def kilometric_president_pays(railway, rest, kg)
+          player = chain_player(railway)
+          return @log << "#{format_currency(rest)} of #{kg.name} stays unpaid: #{railway.name} has no president" unless player
+
+          if player.cash >= rest
+            kilometric_pay!(player, railway, rest)
+          elsif player.cash + kilometric_sellable_value(player, railway) >= rest
+            @kilometric_debt = { railway: railway, player: player, rest: rest }
+            @log << "#{player.name}, president of #{railway.name}, must pay the remaining #{format_currency(rest)} " \
+                    "of #{kg.name} and must sell shares to raise it"
+          else
+            kilometric_bankrupt!(player, railway, rest)
+          end
+        end
+
+        def kilometric_bankrupt!(player, railway, rest)
+          @kilometric_debt = nil
+          @log << "-- #{player.name} is bankrupt: cannot pay the #{format_currency(rest)} of Kilometric Guarantee still " \
+                  "owed by #{railway.name}, even after selling every share allowed. The game ends --"
+          declare_bankrupt(player)
+        end
+
+        def kilometric_pay!(player, railway, amount)
+          player.spend(amount, @bank)
+          @kilometric_debt = nil
+          @log << "#{player.name}, president of #{railway.name}, pays the bank #{format_currency(amount)} from personal cash " \
+                  'for Kilometric Guarantee'
+        end
+
+        # What the player could still raise by selling certificates (each
+        # company's largest legal bundle at its current price), never the
+        # needy Railway's presidency
+        def kilometric_sellable_value(player, railway)
+          kilometric_bundles(player, railway)
+            .group_by { |some| some.first.corporation }
+            .sum { |corporation, bundles| corporation.share_price.price * bundles.map(&:size).max }
+        end
+
+        def kilometric_bundles(player, railway)
+          legal_bundles(player).reject do |some|
+            some.first.corporation == railway &&
+              president_after(railway, player => -some.sum(&:percent)) != railway.owner
+          end
         end
 
         # Section 14, start of phase 5 (the first 5-train)
@@ -1306,6 +1367,7 @@ module Engine
         def operating_round(round_num)
           place_pending_markers
           G1887::Round::Operating.new(self, [
+            G1887::Step::KilometricPayment,
             G1887::Step::HomeToken,
             G1887::Step::FinancialTurn,
             G1887::Step::MergeChoices,

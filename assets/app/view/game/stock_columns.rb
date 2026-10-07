@@ -41,11 +41,10 @@ module View
         [render_order_strip, h('div#stock_columns', grid, columns), render_not_started(merging)].compact
       end
 
+      # The player whose turn it is is marked only by the underlined name in
+      # the row of names at the top, not by a box around the card
       def render_stock_player(player)
-        card = h(Player, player: player, game: @game)
-        return h(:div, [card]) unless @game.round.can_act?(player)
-
-        h(:div, { style: { display: 'inline-block', outline: '3px solid white', outlineOffset: '1px' } }, [card])
+        h(:div, [h(Player, player: player, game: @game)])
       end
 
       # The same card, with the same buy / sell / par input under it, as

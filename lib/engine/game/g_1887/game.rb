@@ -831,8 +831,8 @@ module Engine
             company_by_id(sym).desc =
               "Gives its buyer the 40% president's certificate of #{plain.call(fh)}. #{plain.call(fh)} floats at once: " \
               'the winning bid is paid into its treasury, and its par is the highest par not above half the winning ' \
-              "bid. #{plain.call(fh)} keeps its 20% seed certificate in #{plain.call(cc)} (#{cc.name}); the buyer gets " \
-              'none of it. Closes at the start of the first Stock Round. Until then it counts toward no limit and no score.'
+              "bid. #{plain.call(fh)} holds a 20% seed certificate in #{plain.call(cc)} (#{cc.name}). " \
+              'Closes at the start of the first Stock Round.'
           end
         end
 

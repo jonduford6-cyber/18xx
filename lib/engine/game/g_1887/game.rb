@@ -1650,6 +1650,28 @@ module Engine
           end
         end
 
+        # 5.4, 5.7: a president who holds only the certificate (no ordinary
+        # share) may sell ONE share when another holder has at least two: the
+        # certificate is exchanged at once (the taker gives two ordinary
+        # shares) and one of them is sold. Each entry is [certificate]; the
+        # sale is the bundle of the certificate with one share's percent.
+        def single_share_bundles(seller)
+          seller.shares.group_by(&:corporation).filter_map do |corporation, shares|
+            next if corporation == seller || !corporation.share_price || corporation.founding
+
+            cert = shares.find(&:president)
+            next if !cert || shares.any? { |sh| sh.buyable && !sh.president } || !presidency_taker(corporation, seller)
+            next unless share_pool.fit_in_bank?(ShareBundle.new([cert], corporation.share_percent))
+
+            [cert]
+          end
+        end
+
+        def single_share_bundle?(seller, bundle)
+          bundle.shares.one? && bundle.partial? && bundle.percent == bundle.corporation.share_percent &&
+            single_share_bundles(seller).any? { |some| some.first == bundle.shares.first }
+        end
+
         def presidency_bundle?(seller, shares)
           ids = shares.map(&:id).sort
           presidency_bundles(seller).any? { |some| some.map(&:id).sort == ids }
@@ -1694,10 +1716,33 @@ module Engine
           count.times { price_down(corporation) }
         end
 
+        # 5.4, 5.7: the exchange first (the taker gets the certificate and
+        # gives the seller two ordinary shares), then one of those is sold
+        # at the market price; the price drops one row
+        def sell_single_share(cert)
+          corporation = cert.corporation
+          seller = cert.owner
+          taker = presidency_taker(corporation, seller)
+          raise GameError, "No other holder of #{corporation.name} has two certificates" unless taker
+
+          share_pool.change_president(cert, seller, taker, seller)
+          corporation.owner = taker
+          @log << "#{taker.name} becomes the president of #{corporation.name} and gives #{seller.name} two shares"
+          share = seller.shares_of(corporation).find { |sh| sh.buyable && !sh.president }
+          raise GameError, "#{seller.name} has no share of #{corporation.name} to sell" unless share
+
+          bundle = ShareBundle.new([share])
+          bundle.share_price = corporation.share_price.price
+          share_pool.sell_shares(bundle, allow_president_change: false)
+          price_down(corporation)
+        end
+
         # Sells certificates of one company together to the bank pool at the
         # current price per certificate; a presidency swap once, after the
-        # whole bundle; then the price drops one row per certificate
-        def sell_bundle(shares)
+        # whole bundle; then the price drops one row per certificate.
+        # `one`: ONE share of a president who holds only the certificate.
+        def sell_bundle(shares, one: false)
+          return sell_single_share(shares.first) if one
           return sell_presidency_bundle(shares) if shares.any?(&:president)
 
           corporation = shares.first.corporation
@@ -1823,13 +1868,16 @@ module Engine
         def sell_shares_and_change_price(bundle, allow_president_change: true, swap: nil, movement: nil)
           return super if swap || movement
 
-          sell_bundle(bundle.shares)
+          sell_bundle(bundle.shares, one: bundle.partial?)
         end
 
         # The bundle of `count` certificates of a company that a button
         # "sell:<company>:<count>" stands for
         def bundle_for(seller, corporation_id, count)
           corporation = corporation_by_id(corporation_id)
+          if count.to_s == 'x1' # one share of a president who holds only the certificate
+            return single_share_bundles(seller).find { |some| some.first.corporation == corporation }
+          end
           if count.to_s.start_with?('p') # "p1": the president's certificate and 1 ordinary one
             return presidency_bundles(seller).find { |some| some.first.corporation == corporation && some.size == count.to_s[1..].to_i + 1 }
           end

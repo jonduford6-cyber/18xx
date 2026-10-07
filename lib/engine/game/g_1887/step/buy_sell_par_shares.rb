@@ -48,10 +48,15 @@ module Engine
             return [] if !entity.player? || entity != current_entity || @game.num_certs(entity) <= @game.cert_limit(entity)
 
             bundles = entity.shares.map(&:corporation).uniq.flat_map do |c|
-              @game.bundles_for_corporation(entity, c).select { |bb| can_sell?(entity, bb) }.map(&:shares)
+              @game.bundles_for_corporation(entity, c).select { |bb| can_sell?(entity, bb) }
             end
-            bundles.map do |shares|
+            bundles.map do |bb|
+              shares = bb.shares
               c = shares.first.corporation
+              if bb.partial? # ONE share of a president who holds only the certificate
+                next ["forcedsell:#{c.id}:#{shares.map(&:id).join('+')}:x1", "Sell 1 #{c.name} (#{@game.format_currency(c.share_price.price)})", shares]
+              end
+
               price = @game.format_currency(c.share_price.price * shares.sum(&:num_shares))
               ["forcedsell:#{c.id}:#{shares.map(&:id).join('+')}", "Sell #{@game.count_of(shares)} #{c.name} (#{price})", shares]
             end
@@ -103,7 +108,7 @@ module Engine
               option = forced.find { |key, _, _| key == action.choice }
               raise GameError, "#{entity.name} must first sell: #{forced.map { |_, label, _| label }.join(', ')}" unless option
 
-              bundle = ShareBundle.new(option[2])
+              bundle = ShareBundle.new(option[2], option[0].end_with?(':x1') ? option[2].first.corporation.share_percent : nil)
               sell_shares(entity, bundle)
               track_action(action, bundle.corporation)
               return
@@ -281,7 +286,11 @@ module Engine
             return false unless bundle.corporation.share_price # 5.1: no market price, no sale
             # 5.4: a president's certificate is sold only when another holder has two certificates
             if bundle.presidents_share
-              return false if bundle.partial? || !@game.presidency_bundle?(entity, bundle.shares)
+              if bundle.partial? # ONE share of a president who holds only the certificate
+                return false unless @game.single_share_bundle?(entity, bundle)
+              elsif !@game.presidency_bundle?(entity, bundle.shares)
+                return false
+              end
             end
 
             super

@@ -181,9 +181,24 @@ module Engine
                  .select { |some| no_more_than_needed?(some, need) }
           end
 
+          # ONE share of a president who holds only the certificate (the
+          # certificate is exchanged at once); never of the needy Railway
+          def player_single_share_bundles(railway)
+            player = top_player(railway)
+            return [] unless (shortfall(railway) - player.cash).positive?
+
+            @game.single_share_bundles(player).reject { |some| some.first.corporation == railway }
+          end
+
           def can_sell?(entity, bundle)
             railway = current_entity
             return false if !railway || !emergency?(railway)
+
+            if bundle.partial? # ONE share, see player_single_share_bundles
+              return entity != railway && entity == top_player(railway) && player_stage?(railway) &&
+                     bundle.owner == entity && @game.single_share_bundle?(entity, bundle) &&
+                     player_single_share_bundles(railway).any? { |some| some.first == bundle.shares.first }
+            end
 
             wanted = bundle.shares.map(&:id).sort
             if entity == railway
@@ -234,7 +249,7 @@ module Engine
               @game.issue_shares(owner, bundle.shares)
               @issued = true if owner == railway
             else
-              @game.sell_bundle(bundle.shares)
+              @game.sell_bundle(bundle.shares, one: bundle.partial?)
             end
             settle!(railway)
           end
@@ -289,6 +304,7 @@ module Engine
                          .reject { |some| changes_presidency?(railway, player, some) }
                          .group_by { |some| some.first.corporation }
                          .sum { |corporation, bundles| corporation.share_price.price * bundles.map(&:size).max }
+            value += player_single_share_bundles(railway).sum { |some| some.first.corporation.share_price.price }
             player.cash + value < shortfall(railway)
           end
 

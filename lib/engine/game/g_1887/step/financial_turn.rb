@@ -233,6 +233,16 @@ module Engine
                 label: "Sell #{@game.count_of(some)} #{target.name} (#{fmt[@game.sale_price(some)]})",
               }
             end)
+            # 5.4, 5.7: a president with only the certificate sells ONE share
+            list.concat(@game.single_share_bundles(entity).map do |some|
+              target = some.first.corporation
+              {
+                choice: "sell:#{target.id}:x1",
+                share: some.first,
+                shares: some,
+                label: "Sell 1 #{target.name} (#{fmt[target.share_price.price]})",
+              }
+            end)
             if (share = @game.redeemable_share(entity))
               list << {
                 choice: 'redeem',
@@ -287,7 +297,10 @@ module Engine
 
             fmt = ->(v) { @game.format_currency(v) }
             sells = other_options(entity).select { |o| o[:choice].start_with?('sell:') && o[:share].corporation == corporation }
-                                         .map { |o| [o[:choice], "Sell #{@game.count_of(o[:shares])} (#{fmt[@game.sale_price(o[:shares])]})"] }
+                                         .map do |o|
+              one = o[:choice].end_with?(':x1') # ONE share of a president with only the certificate
+              [o[:choice], "Sell #{one ? 1 : @game.count_of(o[:shares])} (#{fmt[one ? corporation.share_price.price : @game.sale_price(o[:shares])]})"]
+            end
             buys = buy_options(entity).select { |o| o[:share].corporation == corporation }.map do |o|
               source = o[:choice].split(':').first
               [o[:choice], "Buy #{@game.count_of([o[:share]])} #{source} Share (#{fmt[o[:price]]})"]
@@ -311,7 +324,7 @@ module Engine
               shares = @game.bundle_for(entity, arg, count)
               raise GameError, "#{entity.name} cannot sell #{arg} now" unless shares
 
-              @game.sell_bundle(shares)
+              @game.sell_bundle(shares, one: count == 'x1')
               @sold = true
               (@sold_companies ||= []) << shares.first.corporation
               return

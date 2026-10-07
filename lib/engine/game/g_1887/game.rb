@@ -300,6 +300,16 @@ module Engine
           tier&.minor? ? tier.owner : tier
         end
 
+        # Card display (opt-in method used by the shared corporation card):
+        # the name of the player at the top of a started company's chain
+        def card_controller_name(corporation)
+          return nil if !corporation&.corporation? || corporation.retired || !corporation.owner
+
+          top_player(corporation)&.name
+        rescue StandardError
+          nil
+        end
+
         def kilometric_president_pays(railway, rest, kg)
           player = chain_player(railway)
           return @log << "#{format_currency(rest)} of #{kg.name} stays unpaid: #{railway.name} has no president" unless player

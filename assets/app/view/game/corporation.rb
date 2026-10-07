@@ -277,11 +277,57 @@ module View
             h(:div, [render_to_float])
           end
 
+        pill = render_controller_pill
+        # opt-in (a game that defines card_controller_name): the pill sits
+        # after the cash and before the tokens, or at the right end when the
+        # company has no tokens
+        if pill
+          has_tokens = !@corporation.tokens.empty?
+          holdings_row_props[:style][:grid] =
+            if has_tokens
+              '1fr / max-content minmax(max-content, 1fr) max-content minmax(4rem, max-content)'
+            else
+              '1fr / max-content minmax(max-content, 1fr) max-content'
+            end
+          return h('div.corp__holdings', holdings_row_props, [
+            h(:div, sym_props, @corporation.name),
+            holdings,
+            pill,
+            *(has_tokens ? [render_tokens] : []),
+          ])
+        end
+
         h('div.corp__holdings', holdings_row_props, [
           h(:div, sym_props, @corporation.name),
           holdings,
           render_tokens,
         ])
+      end
+
+      # Small pill with the name of the player who controls the company; only
+      # for games that define card_controller_name. Any error draws nothing.
+      def render_controller_pill
+        return nil unless @game.respond_to?(:card_controller_name)
+
+        name = @game.card_controller_name(@corporation)
+        return nil if name.nil? || name.to_s.empty?
+
+        props = {
+          attrs: { title: 'Controlled by' },
+          style: {
+            alignSelf: 'center',
+            justifySelf: 'end',
+            fontSize: '75%',
+            padding: '0 0.5rem',
+            borderRadius: '0.8rem',
+            backgroundColor: 'lightgrey',
+            color: 'black',
+            whiteSpace: 'nowrap',
+          },
+        }
+        h(:div, props, name.to_s)
+      rescue StandardError
+        nil
       end
 
       def render_cash

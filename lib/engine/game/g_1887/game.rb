@@ -1250,8 +1250,41 @@ module Engine
         end
 
         # The cities a restarted Railway may choose as its home: an open
-        # station space, connected by track to Buenos Aires (F16)
+        # station space, and a continuous path of track (through the tiles'
+        # own paths) to the Buenos Aires city (F16) that does not pass through
+        # a city filled by other Railways' tokens (it may be entered, not
+        # passed, as for trains), an off board location or the ferry hexes
+        #
+        # Without the option strict_home_city the old rule stands: any city
+        # with an open space reached from F16 along tile exits
         def home_token_locations(corporation)
+          return old_home_token_locations(corporation) unless optional_rules.include?(:strict_home_city)
+
+          start = hex_by_id('F16').tile.cities.first
+          return [] unless start
+
+          ferry_paths = FERRY_HEXES.flat_map { |id| hex_by_id(id).tile.paths }.to_h { |p| [p, true] }
+          seen = { start => true }
+          queue = [start]
+          until queue.empty?
+            node = queue.shift
+            next if node != start && (node.offboard? || node.blocks?(corporation))
+
+            node.paths.each do |node_path|
+              node_path.walk(skip_paths: ferry_paths) do |path|
+                path.nodes.each do |other|
+                  next if seen[other]
+
+                  seen[other] = true
+                  queue << other
+                end
+              end
+            end
+          end
+          seen.keys.select { |n| n.city? && n.tokenable?(corporation, free: true) }.map(&:hex).uniq
+        end
+
+        def old_home_token_locations(corporation)
           start = hex_by_id('F16')
           seen = { start => true }
           queue = [start]

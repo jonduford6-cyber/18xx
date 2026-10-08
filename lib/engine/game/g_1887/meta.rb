@@ -74,6 +74,12 @@ module Engine
                   "shares, and the winner receives the missing president's certificate from the unissued shares. For games " \
                   'started under the old rule. It does nothing without the purchase of control.',
           },
+          {
+            sym: :strict_home_city,
+            short_name: 'Strict home city',
+            desc: "A restarted Railway's home city must have a continuous path of track to Buenos Aires that does not pass " \
+                  'through a city filled by other Railways\' tokens, an off board location or the ferry hexes.',
+          },
         ].freeze
 
         # At most one merger style (the site's creation form unticks the other)

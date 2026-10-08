@@ -300,6 +300,7 @@ module Engine
         attr_reader :kilometric_debt
 
         def event_kilometric_clawback!
+          close_open_ferry!
           kg = company_by_id('KG')
           return if !kg || kg.closed?
 
@@ -316,6 +317,18 @@ module Engine
           end
           kg.close!
           @log << "#{kg.name} closes"
+        end
+
+        # Option open_ferry: the Paraná Ferry Company closes at the start of
+        # phase 6 (with Kilometric Guarantee); its owner simply loses it
+        def close_open_ferry!
+          return unless optional_rules.include?(:open_ferry)
+
+          ferry = company_by_id('PFC')
+          return if !ferry || ferry.closed?
+
+          ferry.close!
+          @log << "#{ferry.name} closes"
         end
 
         # The player at the top of a corporation's chain (Lombard Street's
@@ -691,6 +704,7 @@ module Engine
           deal_corporate_seeds
           name_charter_seeds
           name_locked_starters
+          name_open_ferry
           retire_unauctioned_house
           PREFLOATED.each { |id, price| prefloat(corporation_by_id(id), price) }
           seed_lombard
@@ -819,6 +833,7 @@ module Engine
 
           ferry = company_by_id('PFC')
           return if ferry && !ferry.closed? && ferry.owner == route.corporation
+          return if ferry&.closed? && optional_rules.include?(:open_ferry)
 
           raise GameError, "Only a Railway owning #{ferry&.name || 'the Paraná Ferry Company'} may run over F24 or G21"
         end
@@ -903,6 +918,20 @@ module Engine
               .sub(/\AMay be bought by a Railroad for \$\d+ to \$\d+ from the player at the top of its chain, from phase 3\. /, '')
               .sub('BAGS (RR) share. ', 'BAGS (RR) share. A Railroad may not buy it. ')
           end
+        end
+
+        # Option open_ferry: the ferry card says it closes at phase 6
+        def name_open_ferry
+          return unless optional_rules.include?(:open_ferry)
+
+          ferry = company_by_id('PFC')
+          return unless ferry
+
+          ferry.desc = ferry.desc.sub(
+            'Stays open when phase 5 begins, but pays no income from then on.',
+            'Closes at the start of phase 6. After that, any Railroad may run routes over F24 and G21 ' \
+            '(the way to the Atlantic Export).'
+          )
         end
 
         def deal_to_corporations(holder_ids, target_ids)

@@ -80,6 +80,12 @@ module Engine
             desc: "A restarted Railway's home city must have a continuous path of track to Buenos Aires that does not pass " \
                   'through a city filled by other Railways\' tokens, an off board location or the ferry hexes.',
           },
+          {
+            sym: :locked_starter_privates,
+            short_name: 'Locked Starter Privates',
+            desc: 'Petro & Ladd Construction Contract and Robert Stephenson & Co. Locomotive Order cannot be bought by a ' \
+                  'Railroad. They keep their free BAGS share and their other abilities.',
+          },
         ].freeze
 
         # At most one merger style (the site's creation form unticks the other)

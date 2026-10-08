@@ -67,6 +67,13 @@ module Engine
             desc: 'In an emergency train purchase, corporations may issue shares to raise money (the old rule). ' \
                   'Without this option nobody issues shares in an emergency.',
           },
+          {
+            sym: :legacy_purchase_of_control,
+            short_name: 'Legacy purchase of control',
+            desc: 'The purchase of control as it worked before the buyout rule: the holders are paid and keep half their ' \
+                  "shares, and the winner receives the missing president's certificate from the unissued shares. For games " \
+                  'started under the old rule. It does nothing without the purchase of control.',
+          },
         ].freeze
 
         # At most one merger style (the site's creation form unticks the other)

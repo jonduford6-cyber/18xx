@@ -225,11 +225,35 @@ module Engine
           end
         end
 
+        # Option legacy_purchase_of_control: the purchase of control as it
+        # worked before the buyout rule (holders keep half their shares)
+        def legacy_control?
+          optional_rules.include?(:legacy_purchase_of_control)
+        end
+
         # The new shares the winner receives: every two bought units make one
         # share; nil if that is fewer than two (he could not become president)
-        def control_winner_units(_player, survivor, retired)
+        def control_winner_units(player, survivor, retired)
+          return legacy_control_winner_units(player, survivor, retired) if legacy_control?
+
           shares = buyout_holders(survivor, retired).sum(&:last).div(2)
           shares >= 2 ? shares : nil
+        end
+
+        # Legacy: the units a winner would hold: his own pairs, at least the
+        # president's certificate (2 units). The missing units come from the
+        # certificates the pairing leaves unissued: first the merged
+        # company's own treasury, then those nobody receives (the pool).
+        # nil if there are not enough.
+        def legacy_control_winner_units(player, survivor, retired)
+          plan = merge_plan(player, survivor, retired)
+          own = merge_units(player, survivor, retired).div(2)
+          missing = [2 - own, 0].max
+          others = plan[:rows].sum { |h, u| h == player ? 0 : u.div(2) }
+          kept = plan[:treasury].div(2) + (plan[:treasury] % 2)
+          ordinary = (tier(survivor) == 2 ? 10 : 5) - 2
+          left = ordinary - others - [own - 2, 0].max # ordinary certificates not given to holders
+          left - (kept - [missing, kept].min) >= 0 ? [own, 2].max : nil
         end
 
         # Who may announce or bid: enough cash for the minimum bid + $5, the
@@ -244,6 +268,15 @@ module Engine
 
           certs_now = player.shares.count { |s| [survivor, retired].include?(s.corporation) }
           return false if num_certs(player) - certs_now + (shares - 1) > cert_limit(player)
+
+          if legacy_control?
+            # 5.6: Lombard Street's shares, and those of the corporations it
+            # presides over, do not count toward its owner's control
+            others = player_holders(player)
+                     .reject { |h| h == player || h.minor? || control_actor(h)&.minor? || [survivor, retired].include?(h) }
+                     .sum { |h| merge_units(h, survivor, retired).div(2) }
+            return (shares + others) * unit_percent(survivor) <= self.class::CONTROL_LIMIT
+          end
 
           shares * unit_percent(survivor) <= self.class::CONTROL_LIMIT
         end
@@ -273,10 +306,12 @@ module Engine
             winner.spend(x, holder) unless holder == winner
             @log << "#{holder.name} receives #{format_currency(x)} (#{units} unit#{units == 1 ? '' : 's'})"
           end
-          bought = paid.sum { |_, _, u| u }
-          @log << "#{winner.name} buys every share held in #{survivor.name} and #{retired.name} (#{bought} units, " \
-                  "#{bought.div(2)} new share#{bought.div(2) == 1 ? '' : 's'}" \
-                  "#{bought.odd? ? '; the unpaired unit is discarded' : ''}); their holders lose them"
+          unless legacy_control?
+            bought = paid.sum { |_, _, u| u }
+            @log << "#{winner.name} buys every share held in #{survivor.name} and #{retired.name} (#{bought} units, " \
+                    "#{bought.div(2)} new share#{bought.div(2) == 1 ? '' : 's'}" \
+                    "#{bought.odd? ? '; the unpaired unit is discarded' : ''}); their holders lose them"
+          end
           @round.auction = nil
           @round.merged.concat([survivor, retired])
           perform_merge!(winner, survivor, retired, president: winner)
@@ -337,13 +372,18 @@ module Engine
 
         def perform_merge!(proposer, survivor, retired, president: nil)
           plan = merge_plan(proposer, survivor, retired)
-          if president # Purchase of control: the auction's winner buys every share the holders have
+          if president && legacy_control?
+            plan[:president] = president # Purchase of control (legacy): the auction's winner
+            plan[:forced_president] = true
+          elsif president # Purchase of control: the auction's winner buys every share the holders have
             plan[:president] = president
             plan[:rows] = control_rows(president, survivor, retired)
             plan[:treasury] = units_of(survivor, survivor) + units_of(retired, retired)
           end
           raise GameError, "Nobody would hold #{survivor.name}'s president's certificate" unless plan[:president]
-          raise GameError, 'The winner would receive fewer than two new shares' if president && plan[:rows].first[1] < 4
+          if president && !legacy_control? && plan[:rows].first[1] < 4
+            raise GameError, 'The winner would receive fewer than two new shares'
+          end
 
           operated = merge_operated_this_round?(survivor) || merge_operated_this_round?(retired)
           prices = [survivor, retired].map { |c| c.share_price.price }
@@ -403,11 +443,16 @@ module Engine
             end
           end
           ordinary = survivor.shares_of(survivor).reject(&:president)
-          plan[:rows].each do |holder, units|
+          rows = plan[:rows]
+          rows += [[plan[:president], 0]] if plan[:forced_president] && rows.none? { |h, _| h == plan[:president] }
+          missing = 0
+          rows.each do |holder, units|
             count = units.div(2)
             if holder == plan[:president]
               share_pool.transfer_shares(survivor.presidents_share.to_bundle, holder, allow_president_change: false)
               survivor.owner = holder
+              # legacy purchase of control: made up from the unissued certificates
+              missing = [2 - count, 0].max if plan[:forced_president]
               count = [count - 2, 0].max
             end
             ordinary.shift(count).each { |s| share_pool.transfer_shares(s.to_bundle, holder, allow_president_change: false) }
@@ -416,7 +461,12 @@ module Engine
             @log << "#{holder.name} receives #{units.div(2) * unit_percent(survivor)}% of #{survivor.name}" \
                     "#{units.odd? ? ' and has an unpaired certificate' : ''}"
           end
+          plan[:missing] = missing
           @log << "#{plan[:president].name} becomes the president of #{survivor.name}"
+          return unless missing.positive?
+
+          @log << "#{plan[:president].name} receives #{missing * unit_percent(survivor)}% more of #{survivor.name} " \
+                  "from its unissued certificates to make up the president's certificate"
         end
 
         # Railways: the standard token merger (as 1828, 1867): where both have
@@ -470,6 +520,7 @@ module Engine
           # treasury keeps only its own pairs and its unpaired unit); unpaired
           # holders who buy take theirs from there
           kept = plan[:treasury].div(2) + (plan[:treasury] % 2)
+          kept -= [plan[:missing].to_i, kept].min # legacy purchase of control: the winner's missing units, treasury first
           spare = survivor.shares_of(survivor).reject(&:president).drop(kept)
           spare.each { |s| share_pool.transfer_shares(s.to_bundle, share_pool, allow_president_change: false) }
           @log << "#{spare.sum(&:percent)}% of #{survivor.name} that nobody received goes to the bank pool" unless spare.empty?

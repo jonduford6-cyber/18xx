@@ -1587,10 +1587,13 @@ module Engine
 
         # 5.10: sold out when every certificate is held by players,
         # corporations or Lombard Street: none in the bank pool and none in
-        # the company's own Treasury (the held-back BAWR certificates
-        # included)
+        # the company's own Treasury. BAWR's held-back exchange certificates
+        # (kept in its Treasury) count as held by players here.
         def sold_out?(corporation)
-          share_pool.percent_of(corporation).zero? && corporation.percent_of(corporation).zero?
+          return false unless share_pool.percent_of(corporation).zero?
+
+          held_back = corporation.id == 'BAWR' ? held_back_bawr.sum(&:percent) : 0
+          corporation.percent_of(corporation) == held_back
         end
 
         attr_accessor :first_auctioneer

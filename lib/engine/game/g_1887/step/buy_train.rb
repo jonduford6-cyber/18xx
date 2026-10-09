@@ -35,7 +35,8 @@ module Engine
         # blocks bankruptcy (its president could always refuse); only trains
         # of Railways the same player controls do.
         # Nobody sells more than is needed; no sale changes the Railway's
-        # presidency.
+        # presidency. A corporation sells only shares of companies outside
+        # its own chain (unless the option Legacy emergency issue is on).
         class BuyTrain < Engine::Step::BuyTrain
           include RailwayOnly
 
@@ -166,7 +167,15 @@ module Engine
             own = legacy_issue? ? @game.reissuable_shares(corporation) : []
             issues = (1..own.size).map { |n| own.first(n) }
             sales = @game.legal_bundles(corporation).reject { |some| changes_presidency?(railway, corporation, some) }
+            sales = sales.reject { |some| in_own_chain?(corporation, some) } unless legacy_issue?
             (issues + sales).select { |some| no_more_than_needed?(some, need) }
+          end
+
+          # 8.9: a corporation sells only shares of companies outside its own
+          # chain (itself and every company it presides over, directly or
+          # through others: the test of the final scoring)
+          def in_own_chain?(corporation, shares)
+            @game.control_holders(corporation).include?(shares.first.corporation)
           end
 
           def changes_presidency?(railway, seller, shares)

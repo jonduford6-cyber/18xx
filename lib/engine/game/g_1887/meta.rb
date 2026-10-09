@@ -93,6 +93,12 @@ module Engine
             desc: 'The Parana Ferry Company closes at the start of phase 6, and from then on any Railroad may run routes ' \
                   'over the ferry hexes F24 and G21.',
           },
+          {
+            sym: :no_construction_companies,
+            short_name: 'No Construction Companies (unfinished)',
+            desc: 'The three Construction Companies do not exist. Each Finance House is dealt one seed Railway and starts it ' \
+                  'itself. Unfinished: do not use yet.',
+          },
         ].freeze
 
         # At most one merger style (the site's creation form unticks the other)

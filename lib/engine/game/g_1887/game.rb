@@ -677,6 +677,22 @@ module Engine
         CONSTRUCTION_COS = %w[BWW J&MC MEIG].freeze
         SEED_RAILWAYS = %w[SFW BBNW ANW BAP].freeze
 
+        # Option no_construction_companies: the three Construction Companies
+        # do not exist (they are left out of the corporation list)
+        def no_construction_companies?
+          optional_rules.include?(:no_construction_companies)
+        end
+
+        def construction_cos
+          no_construction_companies? ? [] : CONSTRUCTION_COS
+        end
+
+        def game_corporations
+          return super unless no_construction_companies?
+
+          super.reject { |c| CONSTRUCTION_COS.include?(c[:sym]) }
+        end
+
         def setup
           # A safety net behind the creation form's MUTEX_RULES (an imported
           # or hand-made game could still carry both)
@@ -884,20 +900,29 @@ module Engine
         # Each Finance House gets 20% of a random Construction Company;
         # each Construction Company gets 10% of a random Railway.
         # The fourth Railway is left undealt.
+        #
+        # Option no_construction_companies: each Finance House holds the 10%
+        # of a random seed Railway itself (no Construction Company in between)
         def deal_corporate_seeds
-          deal_to_corporations(FINANCE_HOUSES, CONSTRUCTION_COS)
-          deal_to_corporations(CONSTRUCTION_COS, SEED_RAILWAYS)
+          if no_construction_companies?
+            deal_to_corporations(FINANCE_HOUSES, SEED_RAILWAYS)
+          else
+            deal_to_corporations(FINANCE_HOUSES, construction_cos)
+            deal_to_corporations(construction_cos, SEED_RAILWAYS)
+          end
         end
 
         # Each Charter card names the Construction Company seed share its
         # Finance House really holds (dealt at random, so the text is made
         # after the deal)
         def name_charter_seeds
+          return name_charter_railways if no_construction_companies?
+
           CHARTERS.each do |sym, fh_id|
             next unless company_by_id(sym)
 
             fh = corporation_by_id(fh_id)
-            cc = fh.shares.map(&:corporation).find { |c| CONSTRUCTION_COS.include?(c.id) }
+            cc = fh.shares.map(&:corporation).find { |c| construction_cos.include?(c.id) }
             next unless cc
 
             plain = ->(c) { "#{c.full_name.sub(/ \((FH|CC)\)\z/, '')} (#{finance_house?(c) ? 'FH' : 'CC'})" }
@@ -905,6 +930,23 @@ module Engine
               "Gives its buyer the 40% president's certificate of #{plain.call(fh)}, which floats at once with the " \
               'winning bid in its treasury and a par of at most half the bid. ' \
               "It holds a 20% seed in #{plain.call(cc)} (#{cc.name}), and closes at the start of the first Stock Round."
+          end
+        end
+
+        # Option no_construction_companies: each Charter card names the seed
+        # Railway its Finance House holds and will start
+        def name_charter_railways
+          CHARTERS.each do |sym, fh_id|
+            next unless company_by_id(sym)
+
+            fh = corporation_by_id(fh_id)
+            railway = fh.shares.map(&:corporation).find { |c| SEED_RAILWAYS.include?(c.id) }
+            next unless railway
+
+            company_by_id(sym).desc =
+              "Gives its buyer the 40% president's certificate of #{fh.full_name.sub(/ \((FH|CC)\)\z/, '')} (FH), " \
+              'which floats at once with the winning bid in its treasury and a par of at most half the bid. ' \
+              "It will start #{railway.name} (RR), and closes at the start of the first Stock Round."
           end
         end
 
@@ -1101,7 +1143,7 @@ module Engine
         def financial?(entity)
           return false unless entity&.corporation?
 
-          (FINANCE_HOUSES + CONSTRUCTION_COS).include?(entity.id)
+          (FINANCE_HOUSES + construction_cos).include?(entity.id)
         end
 
         def finance_house?(entity)
@@ -1259,7 +1301,7 @@ module Engine
         # Not yet started (the president's certificate is in its treasury),
         # never started or retired by a merge
         def startable_construction_companies
-          CONSTRUCTION_COS.map { |id| corporation_by_id(id) }
+          construction_cos.map { |id| corporation_by_id(id) }
             .select { |c| c.presidents_share.owner == c }
         end
 

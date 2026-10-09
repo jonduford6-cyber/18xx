@@ -81,12 +81,6 @@ module Engine
                   'through a city filled by other Railways\' tokens, an off board location or the ferry hexes.',
           },
           {
-            sym: :locked_starter_privates,
-            short_name: 'Locked Starter Privates',
-            desc: 'Petro & Ladd Construction Contract and Robert Stephenson & Co. Locomotive Order cannot be bought by a ' \
-                  'Railroad. They keep their free BAGS share and their other abilities.',
-          },
-          {
             sym: :open_ferry,
             short_name: 'Open Ferry',
             desc: 'The Parana Ferry Company closes at the start of phase 6, and from then on any Railroad may run routes ' \

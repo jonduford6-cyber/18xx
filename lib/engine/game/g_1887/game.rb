@@ -204,18 +204,10 @@ module Engine
         end
 
         # 14: from phase 3 a Railway's president may sell the Railway one of
-        # these privates, at half to double face value, from their own hand
-        CORPORATE_PURCHASABLE = %w[PLC RSL KG LBDL PFC ELG].freeze
-
-        # Option locked_starter_privates: Petro & Ladd and Robert Stephenson
-        # may not be bought by a Railroad (like Baring & Robertson Credit)
-        LOCKED_STARTER_PRIVATES = %w[PLC RSL].freeze
-
-        def corporate_purchasable_ids
-          return CORPORATE_PURCHASABLE unless optional_rules.include?(:locked_starter_privates)
-
-          CORPORATE_PURCHASABLE - LOCKED_STARTER_PRIVATES
-        end
+        # these privates, at half to double face value, from their own hand.
+        # Petro & Ladd and Robert Stephenson (like Baring & Robertson Credit)
+        # can never be bought by a Railroad.
+        CORPORATE_PURCHASABLE = %w[KG LBDL PFC ELG].freeze
 
         # The privates the current (or given) Railway may buy: those owned by
         # the player who acts for it, the player at the top of its chain of
@@ -225,7 +217,7 @@ module Engine
           return [] if !entity&.corporation? || financial?(entity)
           return [] unless (player = purchasing_player(entity))
 
-          player.companies.select { |c| corporate_purchasable_ids.include?(c.id) && !c.closed? }
+          player.companies.select { |c| CORPORATE_PURCHASABLE.include?(c.id) && !c.closed? }
         end
 
         # Buy Companies panel (opt-in): the privates the Railway may buy, all
@@ -703,7 +695,6 @@ module Engine
           deal_seed_certificates
           deal_corporate_seeds
           name_charter_seeds
-          name_locked_starters
           name_open_ferry
           retire_unauctioned_house
           PREFLOATED.each { |id, price| prefloat(corporation_by_id(id), price) }
@@ -898,25 +889,9 @@ module Engine
 
             plain = ->(c) { "#{c.full_name.sub(/ \((FH|CC)\)\z/, '')} (#{finance_house?(c) ? 'FH' : 'CC'})" }
             company_by_id(sym).desc =
-              "Gives its buyer the 40% president's certificate of #{plain.call(fh)}. #{plain.call(fh)} floats at once: " \
-              'the winning bid is paid into its treasury, and its par is the highest par not above half the winning ' \
-              "bid. #{plain.call(fh)} holds a 20% seed certificate in #{plain.call(cc)} (#{cc.name}). " \
-              'Closes at the start of the first Stock Round.'
-          end
-        end
-
-        # Option locked_starter_privates: the cards lose the "may be bought"
-        # sentence and say a Railroad may not buy them
-        def name_locked_starters
-          return unless optional_rules.include?(:locked_starter_privates)
-
-          LOCKED_STARTER_PRIVATES.each do |id|
-            company = company_by_id(id)
-            next unless company
-
-            company.desc = company.desc
-              .sub(/\AMay be bought by a Railroad for \$\d+ to \$\d+ from the player at the top of its chain, from phase 3\. /, '')
-              .sub('BAGS (RR) share. ', 'BAGS (RR) share. A Railroad may not buy it. ')
+              "Gives its buyer the 40% president's certificate of #{plain.call(fh)}, which floats at once with the " \
+              'winning bid in its treasury and a par of at most half the bid. ' \
+              "It holds a 20% seed in #{plain.call(cc)} (#{cc.name}), and closes at the start of the first Stock Round."
           end
         end
 
@@ -927,11 +902,8 @@ module Engine
           ferry = company_by_id('PFC')
           return unless ferry
 
-          ferry.desc = ferry.desc.sub(
-            'Stays open when phase 5 begins, but pays no income from then on.',
-            'Closes at the start of phase 6. After that, any Railroad may run routes over F24 and G21 ' \
-            '(the way to the Atlantic Export).'
-          )
+          ferry.desc = 'May be bought by a Railroad for $30 to $120, from phase 3. Only its owning Railroad may run over ' \
+                       'F24 and G21 (the way to Atlantic Export) until it closes at phase 6, after which any Railroad may.'
         end
 
         def deal_to_corporations(holder_ids, target_ids)

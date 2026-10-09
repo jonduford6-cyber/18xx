@@ -231,6 +231,18 @@ module Engine
           optional_rules.include?(:legacy_purchase_of_control)
         end
 
+        # Option legacy_merger_split: the payout in proportion to the number
+        # of units and the 60% control limit for the winner, as before
+        def legacy_merger_split?
+          optional_rules.include?(:legacy_merger_split)
+        end
+
+        # The payout by market value, no 60% limit for the winner and the
+        # forced sell-down (neither legacy option is on)
+        def market_payout?
+          !legacy_control? && !legacy_merger_split?
+        end
+
         # The new shares the winner receives: every two bought units make one
         # share; nil if that is fewer than two (he could not become president)
         def control_winner_units(player, survivor, retired)
@@ -277,19 +289,51 @@ module Engine
                      .sum { |h| merge_units(h, survivor, retired).div(2) }
             return (shares + others) * unit_percent(survivor) <= self.class::CONTROL_LIMIT
           end
+          return true if market_payout? # the winner may go over 60% and must sell down afterwards
 
           shares * unit_percent(survivor) <= self.class::CONTROL_LIMIT
         end
 
-        # The winner pays the holders in proportion to their units (players
-        # in cash, corporations and Lombard Street into their treasuries;
-        # not the pool or a company's own treasury); rounded down; the
-        # remainder goes to the merged treasury
+        # A holder's weight in the payout: his units in each company times
+        # that company's market price (the prices of the minimum bid)
+        def buyout_weight(holder, survivor, retired)
+          [survivor, retired].sum { |c| holder == c ? 0 : units_of(holder, c) * c.share_price.price }
+        end
+
+        # The winner pays the holders in proportion to the market value of
+        # their units (legacy_merger_split: to their number of units); players
+        # in cash, corporations and Lombard Street into their treasuries; not
+        # the pool or a company's own treasury; rounded down; the remainder
+        # goes to the merged treasury
         def control_payments(survivor, retired, amount)
           holders = buyout_holders(survivor, retired)
-          total = holders.sum(&:last)
-          paid = holders.map { |h, u| [h, (amount * u).div(total), u] }
+          weights = holders.map { |h, u| market_payout? ? buyout_weight(h, survivor, retired) : u }
+          total = weights.sum
+          paid = holders.each_with_index.map { |hu, i| [hu[0], (amount * weights[i]).div(total), hu[1]] }
           [paid, amount - paid.sum { |_, x, _| x }]
+        end
+
+        # A winner left over 60% control of the new company must sell down
+        # at the start of his next turn in a Stock Round (only after a
+        # purchase of control); the debt is the company, kept per player
+        def record_control_debt!(winner, survivor)
+          return if !winner.player? || control_percent(winner, survivor) <= self.class::CONTROL_LIMIT
+
+          (@control_debts ||= {})[winner] = survivor
+          @log << "#{winner.name} holds #{control_percent(winner, survivor)}% of #{survivor.name} and must sell it down to " \
+                  "#{self.class::CONTROL_LIMIT}% at the start of the next turn in a Stock Round"
+        end
+
+        # The company the player must sell down, or nil; the debt ends as soon
+        # as his control is at most 60% (or he holds nothing he could sell)
+        def control_debt(player)
+          company = (@control_debts ||= {})[player]
+          return unless company
+          return company if !company.closed? && control_percent(player, company) > self.class::CONTROL_LIMIT &&
+                            player.shares_of(company).any?
+
+          @control_debts.delete(player)
+          nil
         end
 
         def finish_control_auction!
@@ -315,6 +359,7 @@ module Engine
           @round.auction = nil
           @round.merged.concat([survivor, retired])
           perform_merge!(winner, survivor, retired, president: winner)
+          record_control_debt!(winner, survivor) if market_payout?
           return unless remainder.positive?
 
           winner.spend(remainder, survivor)

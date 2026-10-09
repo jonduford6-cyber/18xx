@@ -75,6 +75,13 @@ module Engine
                   'started under the old rule. It does nothing without the purchase of control.',
           },
           {
+            sym: :legacy_merger_split,
+            short_name: 'Legacy merger split',
+            desc: 'The purchase of control as it worked before the payout and control changes: the bid is split in ' \
+                  'proportion to the number of shares, whatever their company, and the winner may not go over 60% ' \
+                  'control. For games started under the old rule. It does nothing without the purchase of control.',
+          },
+          {
             sym: :strict_home_city,
             short_name: 'Strict home city',
             desc: "A restarted Railway's home city must have a continuous path of track to Buenos Aires that does not pass " \

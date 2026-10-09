@@ -26,6 +26,8 @@ module Engine
             # the certificate limit: a required sale comes first, as buttons
             # at the top
             return %w[choose] if entity == current_entity && !forced_options(entity).empty?
+            # owing a sale the pool does not take: nothing but Pass this turn
+            return %w[pass choose] if sell_down_owed(entity)
 
             acts = super
             if entity == current_entity && !bought? && !@game.restartable_finance_houses(entity).empty?
@@ -38,17 +40,32 @@ module Engine
 
           def choice_available?(entity)
             entity == current_entity && entity.player? &&
-              (!forced_options(entity).empty? || @game.confidence_pull_back_allowed?(entity) ||
+              (!forced_options(entity).empty? || sell_down_owed(entity) || @game.confidence_pull_back_allowed?(entity) ||
                !exchange_options(entity).empty?)
           end
 
-          # Required sales, one button each: any legal sale while over the
-          # certificate limit (the 60% control limit never forces a sale)
-          def forced_options(entity)
-            return [] if !entity.player? || entity != current_entity || @game.num_certs(entity) <= @game.cert_limit(entity)
+          # The company a purchase of control left the player over 60% in
+          def sell_down_owed(entity)
+            return if !entity.player? || entity != current_entity
 
-            bundles = entity.shares.map(&:corporation).uniq.flat_map do |c|
-              @game.bundles_for_corporation(entity, c).select { |bb| can_sell?(entity, bb) }
+            @game.control_debt(entity)
+          end
+
+          # Required sales, one button each: any legal sale while over the
+          # certificate limit; after a purchase of control, the sales of that
+          # company that bring the winner towards 60% control (no other
+          # excess over 60% forces a sale)
+          def forced_options(entity)
+            return [] if !entity.player? || entity != current_entity
+
+            debt = sell_down_owed(entity)
+            return [] if !debt && @game.num_certs(entity) <= @game.cert_limit(entity)
+
+            excess = debt && (@game.control_percent(entity, debt) - @game.class::CONTROL_LIMIT)
+            bundles = (debt ? [debt] : entity.shares.map(&:corporation).uniq).flat_map do |c|
+              @game.bundles_for_corporation(entity, c).select do |bb|
+                can_sell?(entity, bb) && (!debt || bb.percent - c.share_percent < excess)
+              end
             end
             bundles.map do |bb|
               shares = bb.shares
@@ -66,6 +83,14 @@ module Engine
             entity = current_entity
             return unless entity&.player?
 
+            if (debt = sell_down_owed(entity))
+              note = "You must sell #{debt.name} down to #{@game.class::CONTROL_LIMIT}%"
+              note += " (you hold #{@game.control_percent(entity, debt)}%)"
+              if forced_options(entity).empty?
+                note += '. The bank pool cannot take any more now; the rest is owed at your next turn'
+              end
+              return [note]
+            end
             return if forced_options(entity).empty?
 
             ["#{entity.name} holds #{@game.num_certs(entity)} certificates; the limit is #{@game.cert_limit(entity)}"]
@@ -82,7 +107,7 @@ module Engine
 
           def choice_name
             entity = current_entity
-            return entity.name unless forced_options(entity).empty?
+            return entity.name if !forced_options(entity).empty? || sell_down_owed(entity)
             return 'Confidence Track' if exchange_options(entity).empty?
             return 'BAWR' unless @game.confidence_pull_back_allowed?(entity)
 
@@ -92,7 +117,7 @@ module Engine
           def choices
             entity = current_entity
             forced = forced_options(entity)
-            return forced.to_h { |key, label, _| [key, label] } unless forced.empty?
+            return forced.to_h { |key, label, _| [key, label] } if !forced.empty? || sell_down_owed(entity)
 
             list = exchange_options(entity).to_h { |c| ["exchange:#{c.id}", "Exchange #{c.name} for 10% BAWR"] }
             if @game.confidence_pull_back_allowed?(entity)
@@ -104,7 +129,7 @@ module Engine
           def process_choose(action)
             entity = action.entity
             forced = forced_options(entity)
-            unless forced.empty?
+            if !forced.empty? || sell_down_owed(entity)
               option = forced.find { |key, _, _| key == action.choice }
               raise GameError, "#{entity.name} must first sell: #{forced.map { |_, label, _| label }.join(', ')}" unless option
 
@@ -275,6 +300,7 @@ module Engine
             raise GameError, "Cannot sell shares of #{shares.corporation.name}" if swap || !can_sell?(entity, shares)
 
             super(entity, shares)
+            @game.control_debt(entity) # the debt ends once control is at most 60%
           end
 
           def can_dump?(entity, bundle)

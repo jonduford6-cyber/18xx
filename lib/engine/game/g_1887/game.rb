@@ -775,7 +775,20 @@ module Engine
           fourth = SEED_RAILWAYS.map { |id| corporation_by_id(id) }
                      .find { |r| r.share_holders.keys.all? { |h| h == r } }
           give_seed(lombard, fourth) if fourth
+          name_lombard_card(fourth)
           show_confidence
+        end
+
+        # The card names the fourth seed Railway Lombard Street really holds
+        # (dealt at random, so the text is made after the deal)
+        def name_lombard_card(fourth)
+          card = company_by_id('LS')
+          return unless card
+
+          comes = fourth ? "Comes with one BAWR (RR) share and one #{fourth.name} (RR) share." : 'Comes with one BAWR (RR) share.'
+          card.desc = "#{comes} Does not close. Its owner may buy one share per Stock Round for Lombard Street, or start a " \
+                      'company, paying from its treasury and then his own cash. Each purchase moves the Confidence Track ' \
+                      'forward one space, and at space 7 the game ends.'
         end
 
         # Estancia Land Grant (4 players only): its standard blocks_hexes
@@ -1621,11 +1634,6 @@ module Engine
           float_finance_house(player, company, corporation_by_id(fh_id), price)
         end
 
-        # The Lombard Street private closes on purchase; its buyer becomes
-        # Lombard Street's owner and acts for it
-        # Player cards: the Lombard Street private closes when it is bought
-        # (its buyer becomes the owner of Lombard Street), so the card lists
-        # it as an extra row for the owner (display only; nobody's holdings change)
         # The operating-order row on the Game tab: a short type tag after the
         # company's name (display only)
         def entity_type_tag(entity)
@@ -1640,15 +1648,12 @@ module Engine
           end
         end
 
-        def player_card_extra_companies(player)
-          ls = company_by_id('LS')
-          ls && lombard&.owner == player ? [ls] : []
-        end
-
+        # The Lombard Street private never closes: its buyer owns Lombard
+        # Street for the whole game and the card stays on the player's card,
+        # where it counts as one certificate (but its face value is not scored)
         def take_lombard(player, company)
-          company.close!
           lombard.owner = player
-          @log << "#{company.name} closes; #{player.name} becomes the owner of #{lombard.full_name}"
+          @log << "#{player.name} becomes the owner of #{lombard.full_name} (#{company.name} does not close)"
         end
 
         # Privates that each come with one 10% BAGS certificate from the
@@ -1882,7 +1887,7 @@ module Engine
 
         def player_value(player)
           value = player.cash + player.shares.sum { |sh| certificate_value(sh) } +
-                  player.companies.reject { |c| CHARTERS.key?(c.id) }.sum(&:value)
+                  player.companies.reject { |c| CHARTERS.key?(c.id) || c.id == 'LS' }.sum(&:value)
           actors = [player]
           if lombard&.owner == player
             value += lombard.cash + lombard.shares.sum { |sh| certificate_value(sh) }

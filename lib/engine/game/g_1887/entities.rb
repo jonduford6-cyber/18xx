@@ -136,7 +136,7 @@ module Engine
             sym: 'LS',
             value: 135,
             revenue: 0,
-            desc: 'Closes when it is bought; its buyer owns Lombard Street, which holds cash and shares and acts only through its owner. Once per Stock Round its owner may have Lombard Street buy one certificate, or start a company, instead of his own buy; Lombard Street pays what its treasury allows and its owner pays the rest. Each such action moves the Confidence Track forward one space. Lombard Street may start a Construction Company that has never been started, a retired Construction Company or Railroad, and, from the first 4-train, a Railroad that has never been started.',
+            desc: 'Comes with one BAWR (RR) share and one more Railroad share. Does not close. Its owner may buy one share per Stock Round for Lombard Street, or start a company, paying from its treasury and then his own cash. Each purchase moves the Confidence Track forward one space, and at space 7 the game ends.',
             abilities: [],
             color: nil,
           },

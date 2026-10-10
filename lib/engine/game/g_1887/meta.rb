@@ -95,9 +95,9 @@ module Engine
           },
           {
             sym: :no_construction_companies,
-            short_name: 'No Construction Companies (unfinished)',
-            desc: 'The three Construction Companies do not exist. Each Finance House is dealt one seed Railway and starts it ' \
-                  'itself. Unfinished: do not use yet.',
+            short_name: 'No Construction Companies',
+            desc: 'The three Construction Companies do not exist. Each Finance House is dealt one seed Railway, holds a 10% ' \
+                  'seed in it and starts it itself.',
           },
         ].freeze
 

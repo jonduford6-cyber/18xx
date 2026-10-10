@@ -1009,7 +1009,8 @@ module Engine
         # Entities tab: each player's column lists the corporations that
         # player controls in tree order, every corporation right after its
         # president (Finance House, its Construction Companies, their
-        # Railways). The player's own Railways come first (BAGS, BAWR, then
+        # Railways; with the option no_construction_companies: Finance
+        # House, its Railways). The player's own Railways come first (BAGS, BAWR, then
         # by name); other siblings in operating order, then name. A
         # corporation caught in an unexpected loop of presidents goes last
         # in the first player's column, so no card is ever hidden.
@@ -1047,7 +1048,8 @@ module Engine
         # One entry per player, in the order given: [player, Lombard Street
         # (if the player owns it), the companies the player presides over
         # directly (BAGS, BAWR, Finance Houses, Construction Companies, other
-        # Railways), the companies below them (through a corporation or
+        # Railways; no Construction Companies under the option
+        # no_construction_companies), the companies below them (through a corporation or
         # Lombard Street) grouped by chain, as the Entities tab orders them].
         # Every started company is in exactly one entry.
         def stock_round_columns(players)
@@ -1151,7 +1153,10 @@ module Engine
         end
 
         # 0 Finance House, 1 Construction Company, 2 Railway: a corporation
-        # buys only from a higher tier number (11.3.3)
+        # buys only from a higher tier number (11.3.3). Under the option
+        # no_construction_companies there is no tier 1: the chain is
+        # Railway (2), Finance House (0), player; every test of tier == 2
+        # and every "> tier" comparison stays valid
         def tier(corporation)
           return 0 if finance_house?(corporation)
 
@@ -1692,7 +1697,8 @@ module Engine
         end
 
         # The operating-order row on the Game tab: a short type tag after the
-        # company's name (display only)
+        # company's name (display only); 'CC' is never returned under the
+        # option no_construction_companies
         def entity_type_tag(entity)
           return unless entity.corporation?
 

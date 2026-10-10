@@ -11,7 +11,9 @@ module Engine
       # follow as steps of the Operating Round.
       module Merge
         # Tiers that may merge (2 Railways, 1 Construction Companies,
-        # 0 Finance Houses)
+        # 0 Finance Houses). Under the option no_construction_companies there
+        # is no tier 1: Finance Houses merge with Finance Houses, Railways
+        # with Railways, and a Finance House proposes the Railway pairs.
         MERGE_TIERS = [0, 1, 2].freeze
 
         # A Railway's station limit (its charter's tokens)
@@ -42,7 +44,9 @@ module Engine
             if finance_house?(proposer)
               houses = @corporations.select { |c| finance_house?(c) && c != proposer && merge_ready?(c) }
               houses = [] unless merge_ready?(proposer)
-              houses.map { |c| [proposer, c] } + presided_pairs(proposer, 1)
+              # the pairs a Construction Company would propose (none without them)
+              # fall to the Finance House: the Railways it presides over
+              houses.map { |c| [proposer, c] } + presided_pairs(proposer, no_construction_companies? ? 2 : 1)
             else
               presided_pairs(proposer, 2)
             end

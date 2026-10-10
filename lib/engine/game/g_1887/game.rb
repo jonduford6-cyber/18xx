@@ -946,7 +946,7 @@ module Engine
             company_by_id(sym).desc =
               "Gives its buyer the 40% president's certificate of #{fh.full_name.sub(/ \((FH|CC)\)\z/, '')} (FH), " \
               'which floats at once with the winning bid in its treasury and a par of at most half the bid. ' \
-              "It will start #{railway.name} (RR), and closes at the start of the first Stock Round."
+              "It holds a 10% seed in #{railway.name} (RR), and closes at the start of the first Stock Round."
           end
         end
 
@@ -1311,6 +1311,18 @@ module Engine
         def startable_railways
           ids = SEED_RAILWAYS + (@phase.available?('4') ? %w[ER] : [])
           fresh = ids.map { |id| corporation_by_id(id) }.select { |c| c.presidents_share.owner == c && !c.retired }
+          fresh + restartable_railways
+        end
+
+        # Option no_construction_companies: the Railways a Finance House may
+        # start, as a Construction Company could: the seed Railway it holds the
+        # seed for (its own 10%), Entre Rios from phase 4, and any retired
+        # Railway that has a city it may choose as its home
+        def finance_house_startable_railways(house)
+          ids = SEED_RAILWAYS + (@phase.available?('4') ? %w[ER] : [])
+          fresh = ids.map { |id| corporation_by_id(id) }.select do |c|
+            c.presidents_share.owner == c && !c.retired && (c.id == 'ER' || !house.shares_of(c).empty?)
+          end
           fresh + restartable_railways
         end
 

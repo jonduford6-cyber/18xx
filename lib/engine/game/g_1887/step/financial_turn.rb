@@ -67,7 +67,13 @@ module Engine
             return [] unless @game.financial?(entity)
             return [] if entity.cash < START_MIN
 
-            list = @game.finance_house?(entity) ? @game.startable_construction_companies : @game.startable_railways
+            list = if !@game.finance_house?(entity)
+                     @game.startable_railways
+                   elsif @game.no_construction_companies?
+                     @game.finance_house_startable_railways(entity)
+                   else
+                     @game.startable_construction_companies
+                   end
             list.select { |c| @game.control_ok?(entity, c, c.presidents_share.percent) } # 10.6
           end
 
@@ -161,8 +167,15 @@ module Engine
             if @game.financial?(company)
               return "Only a Finance House can start #{name}" unless @game.finance_house?(entity)
             else
-              return "A Finance House cannot start a Railway (#{name})" if @game.finance_house?(entity)
-              return "Only a Construction Company can start #{name}" unless @game.financial?(entity)
+              if @game.no_construction_companies?
+                return "Only a Finance House can start #{name}" unless @game.finance_house?(entity)
+                if @game.class::SEED_RAILWAYS.include?(company.id) && company.presidents_share.owner == company
+                  return "A Finance House can start only the Railway it holds the seed for (#{name} is not #{entity.name}'s)"
+                end
+              else
+                return "A Finance House cannot start a Railway (#{name})" if @game.finance_house?(entity)
+                return "Only a Construction Company can start #{name}" unless @game.financial?(entity)
+              end
               return "#{name} can be started only from phase 4" if company.id == 'ER' && !@game.phase.available?('4')
             end
             return "#{name} has already been started" unless company.presidents_share.owner == company
@@ -270,7 +283,8 @@ module Engine
             entity = current_entity
             list = {}
             unless available.empty?
-              list['start'] = @game.finance_house?(entity) ? 'Start a Construction Company' : 'Start a Railway'
+              starts_cc = @game.finance_house?(entity) && !@game.no_construction_companies?
+              list['start'] = starts_cc ? 'Start a Construction Company' : 'Start a Railway'
             end
             list.merge!(@game.merge_options(entity).to_h { |choice, label, _, _| [choice, label] })
             others = other_options(entity).reject { |o| o[:choice].start_with?('sell:') }

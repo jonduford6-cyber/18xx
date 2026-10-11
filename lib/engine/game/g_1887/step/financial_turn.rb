@@ -169,9 +169,6 @@ module Engine
             else
               if @game.no_construction_companies?
                 return "Only a Finance House can start #{name}" unless @game.finance_house?(entity)
-                if @game.class::SEED_RAILWAYS.include?(company.id) && company.presidents_share.owner == company
-                  return "A Finance House can start only the Railway it holds the seed for (#{name} is not #{entity.name}'s)"
-                end
               else
                 return "A Finance House cannot start a Railway (#{name})" if @game.finance_house?(entity)
                 return "Only a Construction Company can start #{name}" unless @game.financial?(entity)

@@ -1320,15 +1320,12 @@ module Engine
         end
 
         # Option no_construction_companies: the Railways a Finance House may
-        # start, as a Construction Company could: the seed Railway it holds the
-        # seed for (its own 10%), Entre Rios from phase 4, and any retired
-        # Railway that has a city it may choose as its home
-        def finance_house_startable_railways(house)
-          ids = SEED_RAILWAYS + (@phase.available?('4') ? %w[ER] : [])
-          fresh = ids.map { |id| corporation_by_id(id) }.select do |c|
-            c.presidents_share.owner == c && !c.retired && (c.id == 'ER' || !house.shares_of(c).empty?)
-          end
-          fresh + restartable_railways
+        # start, exactly as a Construction Company could (10.5): ANY seed
+        # Railway never started (whoever holds its 10% seed: the seed stays
+        # where it is and counts as sold), Entre Rios from phase 4, and any
+        # retired Railway that has a city it may choose as its home
+        def finance_house_startable_railways(_house)
+          startable_railways
         end
 
         # Part B: retired Railways that can start again (their home, chosen and

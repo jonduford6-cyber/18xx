@@ -1266,6 +1266,7 @@ module Engine
           owner = lombard.owner
           start_company(lombard, company, amount, payers: [[lombard, from_lombard], [owner, from_owner]])
           company.owner = lombard # the engine names only players and corporations president
+          company.par_sale = true # its other certificates stay for sale at par until the marker is placed
           @log << "#{lombard.full_name} pays #{format_currency(from_lombard)} and #{owner.name} pays " \
                   "#{format_currency(from_owner)}; #{lombard.full_name} is the president of #{company.name}"
           check_presidency(company)
@@ -1452,6 +1453,7 @@ module Engine
           price = share_price.price * 2
           company.restart! if company.retired
           company.founding = true
+          company.par_sale = true
           company.par_price = share_price
           company.share_price = share_price # the founding price; the marker is not on the market
           company.ipoed = true
@@ -1478,6 +1480,14 @@ module Engine
           return if !entity.corporation? || !entity.founding
 
           "#{[share_pool.percent_of(entity) - FOUNDING_FLOAT_POOL, 0].max}% to float"
+        end
+
+        # A Railway a player or Lombard Street founded in a Stock Round, still
+        # without a market price: its unsold certificates are for sale at par
+        # (the bank pool's, paid to the bank; a Treasury's, into the Treasury)
+        # until the marker is placed at the start of the next Operating Round
+        def par_sale?(corporation)
+          !!(corporation.par_sale && !corporation.share_price && !corporation.retired && corporation.par_price)
         end
 
         # The float at 60% sold: 10 x par from the bank, the home station, the
@@ -1553,6 +1563,7 @@ module Engine
         def place_pending_markers
           (@pending_markers || []).each do |company|
             stock_market.set_par(company, company.par_price)
+            company.par_sale = nil
             @log << "#{company.name}'s price marker is placed at " \
                     "#{format_currency(company.par_price.price)}"
           end

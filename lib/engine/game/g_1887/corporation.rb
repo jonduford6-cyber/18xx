@@ -10,6 +10,19 @@ module Engine
         # certificates are in the bank pool, sold at par, paid to the bank
         attr_accessor :founding
 
+        # Founded by a player (or Lombard Street) in a Stock Round and still
+        # without a market price: its unsold certificates stay for sale at
+        # par until the marker is placed (set and cleared by the game)
+        attr_accessor :par_sale
+
+        # A pool certificate has no market price to read while the marker
+        # waits: it is priced at par, as during the founding
+        def min_price
+          return @min_price unless @par_sale && !@share_price && @par_price
+
+          @par_price.price * price_multiplier
+        end
+
         # 11.3.4: the charter retired by a merge (out of the game for now)
         attr_reader :retired
 
@@ -36,6 +49,7 @@ module Engine
           @floated = false
           @ipoed = false
           @founding = nil
+          @par_sale = nil
           @share_price = nil
           @par_price = nil
           @trains = []

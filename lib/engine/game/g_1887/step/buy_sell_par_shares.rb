@@ -175,7 +175,7 @@ module Engine
             return lombard_can_buy?(bundle) if entity == @game.lombard
 
             corporation = bundle.corporation
-            return false unless corporation.share_price
+            return false unless corporation.share_price || @game.par_sale?(corporation) # at par while the marker waits
             return false if bundle.presidents_share
 
             sources = [corporation, @game.share_pool]
@@ -188,7 +188,7 @@ module Engine
           # Only a corporation's own certificates, not seeds it holds
           def can_buy_any_from_ipo?(entity)
             @game.corporations.any? do |c|
-              c.share_price && can_buy_shares?(entity, c.shares_of(c))
+              (c.share_price || @game.par_sale?(c)) && can_buy_shares?(entity, c.shares_of(c))
             end
           end
 
@@ -210,7 +210,7 @@ module Engine
             return false if !bundle.buyable || bundle.presidents_share
 
             corporation = bundle.corporation
-            return false unless corporation.share_price
+            return false unless corporation.share_price || @game.par_sale?(corporation)
             return false unless [corporation, @game.share_pool].include?(bundle.owner)
             return false unless @game.control_ok?(lombard, corporation, bundle.percent) # 10.6
 
@@ -228,7 +228,7 @@ module Engine
           # Price of one certificate for Lombard: the market price, one space
           # lower in the final Stock Round
           def lombard_price(bundle)
-            return bundle.price unless @game.final_stock_round?
+            return bundle.price if !@game.final_stock_round? || !bundle.corporation.share_price # par while no marker
 
             @game.lower_price(bundle.corporation) * bundle.num_shares
           end
@@ -243,7 +243,7 @@ module Engine
 
             bundle = action.bundle
             corporation = bundle.corporation
-            if @game.final_stock_round?
+            if @game.final_stock_round? && corporation.share_price
               bundle.share_price = @game.lower_price(corporation)
               @log << "Final Stock Round: #{lombard.full_name} buys one space lower on the market " \
                       "(#{@game.format_currency(bundle.price)})"

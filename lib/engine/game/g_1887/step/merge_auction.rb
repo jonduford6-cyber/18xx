@@ -112,6 +112,7 @@ module Engine
               break if player == auction[:high_bidder] || (player.player? && player.cash.to_i >= min_bid)
 
               @log << "#{player.name} cannot bid and passes"
+              @game.note_auto_pass(player)
               auction[:bidders].shift
             end
           end

@@ -340,6 +340,34 @@ module Engine
           nil
         end
 
+        # Games recorded before a player who cannot bid passed automatically
+        # contain his manual Pass right after the auction that closed. When
+        # pass_unaffordable! passes a player it notes him (and the round); if
+        # the very next action is a Pass by a noted player who is not the one
+        # to act and the auction is over, it is skipped: it stays in the
+        # action list, nothing is processed or logged. Any other action ends
+        # the note.
+        def note_auto_pass(player)
+          @auto_passed = { round: @round, players: [] } if @auto_passed.nil? || !@auto_passed[:round].equal?(@round)
+          @auto_passed[:players] << player
+        end
+
+        def process_single_action(action)
+          if stale_auto_pass?(action)
+            @auto_passed[:players].delete(action.entity)
+            return
+          end
+
+          @auto_passed = nil
+          super
+        end
+
+        def stale_auto_pass?(action)
+          return false if @auto_passed.nil? || !action.is_a?(Engine::Action::Pass) || !@auto_passed[:round].equal?(@round)
+
+          @round.auction.nil? && @auto_passed[:players].include?(action.entity) && !@round.active_entities.include?(action.entity)
+        end
+
         def finish_control_auction!
           auction = @round.auction
           winner = auction[:high_bidder]

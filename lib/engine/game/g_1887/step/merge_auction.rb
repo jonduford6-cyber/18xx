@@ -86,6 +86,7 @@ module Engine
             auction[:high_bid] = amount
             auction[:high_bidder] = player
             auction[:bidders].rotate!
+            pass_unaffordable!
             @game.finish_control_auction! if auction[:bidders].size == 1
           end
 
@@ -96,7 +97,23 @@ module Engine
 
             @log << "#{player.name} passes"
             auction[:bidders].shift
+            pass_unaffordable!
             @game.finish_control_auction! if auction[:bidders].size == 1
+          end
+
+          # A player whose cash is below the lowest bid he could make (the
+          # bid plus $5) passes automatically, as if he had clicked Pass: he
+          # gets no turn. The high bidder (last in the list) is never skipped.
+          def pass_unaffordable!
+            return unless auction[:high_bid]
+
+            while auction[:bidders].size > 1
+              player = auction[:bidders].first
+              break if player == auction[:high_bidder] || (player.player? && player.cash.to_i >= min_bid)
+
+              @log << "#{player.name} cannot bid and passes"
+              auction[:bidders].shift
+            end
           end
         end
       end

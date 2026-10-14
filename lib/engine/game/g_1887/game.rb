@@ -1473,13 +1473,17 @@ module Engine
         end
 
         # The card's "% to float", shown only where a company floats by
-        # certificates sold: a player-started Entre Rios, how much more must
-        # be sold until 60% has been (never below 0). Every other company
-        # floats by a charter or a start, so it shows no line.
+        # certificates sold: a Railway a player founded shows how much more
+        # must be sold until 60% has been (never below 0); a Railway not yet
+        # started shows 60%. Finance Houses and Construction Companies float
+        # by a charter or a start, so they show no line.
         def float_str(entity)
-          return if !entity.corporation? || !entity.founding
+          return unless entity&.corporation?
+          return "#{[share_pool.percent_of(entity) - FOUNDING_FLOAT_POOL, 0].max}% to float" if entity.founding
+          return if tier(entity) != 2 || entity.floated?
 
-          "#{[share_pool.percent_of(entity) - FOUNDING_FLOAT_POOL, 0].max}% to float"
+          # a Railway not started (or retired): 60% of it must be sold
+          "#{100 - FOUNDING_FLOAT_POOL}% to float"
         end
 
         # A Railway a player or Lombard Street founded in a Stock Round, still

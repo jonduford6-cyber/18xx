@@ -289,14 +289,38 @@ module Engine
             list
           end
 
-          # The shared Choose view draws nothing when the menu is empty
+          # The shared Choose view draws nothing when the menu is empty, unless
+          # there is a hint to show
           def render_choices?
-            !choices.empty?
+            !choices.empty? || !action_hint(current_entity).nil?
           end
 
-          # The company's name before the menu
+          # The company's name before the menu (no name over a bare hint)
           def choice_name
-            current_entity.name
+            choices.empty? ? nil : current_entity.name
+          end
+
+          # Display only: one line under the buttons telling the player that
+          # the company can also sell or buy shares on the cards below. Only
+          # when it really can (the same options the cards offer); nil
+          # otherwise, and nil on any error.
+          def action_hint(entity)
+            return if !entity || entity != current_entity || !@game.financial?(entity) || @start_chosen
+
+            verbs = []
+            verbs << 'buy' unless buy_options(entity).empty?
+            verbs << 'sell' if other_options(entity).any? { |o| o[:choice].start_with?('sell:') }
+            return if verbs.empty?
+
+            "Or #{verbs.join(' or ')} shares on the cards below."
+          rescue StandardError
+            nil
+          end
+
+          # Shown by the shared Choose view under the buttons
+          def choice_explanation
+            hint = action_hint(current_entity)
+            hint ? [hint] : nil
           end
 
           # The buttons on another company's card: this corporation's legal

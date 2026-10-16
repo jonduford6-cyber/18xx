@@ -88,12 +88,6 @@ module Engine
                   'through a city filled by other Railways\' tokens, an off board location or the ferry hexes.',
           },
           {
-            sym: :open_ferry,
-            short_name: 'Open Ferry',
-            desc: 'The Parana Ferry Company closes at the start of phase 6, and from then on any Railroad may run routes ' \
-                  'over the ferry hexes F24 and G21.',
-          },
-          {
             sym: :no_construction_companies,
             short_name: 'No Construction Companies',
             desc: 'The three Construction Companies do not exist. Each Finance House is dealt one seed Railway, holds a 10% ' \

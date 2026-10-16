@@ -311,10 +311,22 @@ module Engine
           @log << "#{kg.name} closes"
         end
 
-        # Option open_ferry: the Paraná Ferry Company closes at the start of
-        # phase 6 (with Kilometric Guarantee); its owner simply loses it
+        # Hidden marker legacy_ferry (games begun before the ferry opened at
+        # phase 6): the Paraná Ferry Company stays open the whole game
+        def legacy_ferry?
+          optional_rules.include?(:legacy_ferry)
+        end
+
+        # Hidden marker legacy_terrain_cost (games begun before the terrain cost
+        # was paid once): the printed cost is charged on every tile action
+        def legacy_terrain_cost?
+          optional_rules.include?(:legacy_terrain_cost)
+        end
+
+        # The Paraná Ferry Company closes at the start of phase 6 (with
+        # Kilometric Guarantee); its owner simply loses it
         def close_open_ferry!
-          return unless optional_rules.include?(:open_ferry)
+          return if legacy_ferry?
 
           ferry = company_by_id('PFC')
           return if !ferry || ferry.closed?
@@ -828,11 +840,14 @@ module Engine
         # is not charged, once only. A player-owned La Boca does nothing.
         LA_BOCA_HEXES = %w[F16 E17].freeze
 
-        # 8.3: the terrain cost printed on the map is paid from the Railway's
-        # Treasury every time a tile is laid on the hex and every time a tile
-        # on it is upgraded (the standard cost belongs to the tile laid, so
-        # only the first one would pay it)
+        # 8.3: the terrain cost printed on the map is paid once, from the
+        # Railway's Treasury, when the first tile is placed in the hex (the tile
+        # being replaced is still the one the map started with); every later
+        # upgrade of the hex is free. Hidden marker legacy_terrain_cost: it is
+        # charged on every tile action, as in games begun under the old rule.
         def upgrade_cost(tile, hex, entity, spender)
+          return 0 if !legacy_terrain_cost? && !tile.equal?(hex.original_tile)
+
           cost = hex.original_tile.upgrades.sum(&:cost)
           la_boca = company_by_id('LBDL')
           return cost if !cost.positive? || !LA_BOCA_HEXES.include?(hex.id) || !la_boca || la_boca.closed?
@@ -853,7 +868,7 @@ module Engine
 
           ferry = company_by_id('PFC')
           return if ferry && !ferry.closed? && ferry.owner == route.corporation
-          return if ferry&.closed? && optional_rules.include?(:open_ferry)
+          return if ferry&.closed? && !legacy_ferry?
 
           raise GameError, "Only a Railway owning #{ferry&.name || 'the Paraná Ferry Company'} may run over F24 or G21"
         end
@@ -950,9 +965,9 @@ module Engine
           end
         end
 
-        # Option open_ferry: the ferry card says it closes at phase 6
+        # The ferry card says it closes at phase 6 (not with legacy_ferry)
         def name_open_ferry
-          return unless optional_rules.include?(:open_ferry)
+          return if legacy_ferry?
 
           ferry = company_by_id('PFC')
           return unless ferry
